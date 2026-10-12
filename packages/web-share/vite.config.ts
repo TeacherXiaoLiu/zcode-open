@@ -28,27 +28,38 @@ export default defineConfig(({ mode }) => {
   return {
     root: resolve(HERE),
     base: "/cn/share/",
+    // 与 web/desktop 一致显式绑定 IPv4 回环，避免 Windows ::1 解析导致本地访问失败。
+    server: { host: "127.0.0.1" },
     // Share 复用 Web 的 material-icons 素材，但不复制完整 Web 源码/依赖。
     // 这样 dev:web-share 与 Docker 生产构建都从同一份 public 资源读取图标。
     publicDir: resolve(REPO_ROOT, "packages/web/public"),
     plugins: [react(), tailwindcss()],
     resolve: {
-      alias: {
-        "@": resolve(REPO_ROOT, "packages/ui/src"),
-        "@zcode/shared": resolve(REPO_ROOT, "packages/shared/src/index.ts"),
+      alias: [
+        // 只能精确匹配 "@zcode/shared" 主入口：字符串前缀别名会把子路径导入
+        // （如 @zcode/shared/mcp-apps）拼成 "src/index.ts/mcp-apps" 这类非法路径。
+        // 子路径改由 packages/shared 的 exports 映射解析（web-share 已链接该 workspace 包）。
+        {
+          find: /^@zcode\/shared$/,
+          replacement: resolve(REPO_ROOT, "packages/shared/src/index.ts"),
+        },
+        { find: "@", replacement: resolve(REPO_ROOT, "packages/ui/src") },
         // Share 镜像不安装 @zcode/ui（它会带入 services/rpc 闭包），子路径导入必须显式指向源码。
-        "@zcode/ui/useTheme": resolve(REPO_ROOT, "packages/ui/src/useTheme.ts"),
-        "@zcode/ui/conversation-share-readonly": resolve(
-          REPO_ROOT,
-          "packages/share-ui/src/index.ts",
-        ),
+        {
+          find: "@zcode/ui/useTheme",
+          replacement: resolve(REPO_ROOT, "packages/ui/src/useTheme.ts"),
+        },
+        {
+          find: "@zcode/ui/conversation-share-readonly",
+          replacement: resolve(REPO_ROOT, "packages/share-ui/src/index.ts"),
+        },
         // 登录卡片要用 provider 图标（svg 走 @ -> packages/ui/src 别名解析）。
         // 该模块只依赖 shared/lucide/cn，不会把 services/rpc 闭包带进 share 镜像。
-        "@zcode/ui/oauth-provider-icon": resolve(
-          REPO_ROOT,
-          "packages/ui/src/lib/oauthProviderIcon.tsx",
-        ),
-      },
+        {
+          find: "@zcode/ui/oauth-provider-icon",
+          replacement: resolve(REPO_ROOT, "packages/ui/src/lib/oauthProviderIcon.tsx"),
+        },
+      ],
     },
     define: {
       __ZCODE_VERSION__: JSON.stringify(version),

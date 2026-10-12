@@ -14,3 +14,7 @@ third-party/runtime/*.txt -text -whitespace
 docs/knip/docs/LICENSE -text -whitespace
 docs/knip/docs/licenses/** -text -whitespace
 third-party/inventory.json linguist-generated=true
+
+# Gen UI vendor 快照由 vendor/manifest.json 声明 sha256 并在构建期逐字节校验，
+# 任何换行转换都会让校验失败，必须保持原始字节。
+apps/zcode-cli/packages/visualize-plugin/skills/visualize/assets/vendor/** -text

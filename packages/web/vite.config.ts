@@ -54,6 +54,9 @@ export default defineConfig(({ mode }) => {
       },
     },
     server: {
+      // 显式绑定 IPv4 回环：部分 Windows 环境 localhost 解析到 ::1 且 IPv6 回环不可用，
+      // 默认监听会让浏览器和 dev 脚本（Electron 启动器）的探测全部失败。
+      host: "127.0.0.1",
       port: 5173,
       proxy: {
         // Web 登录本地调试时，OAuth token 交换必须先命中线上同源接口。

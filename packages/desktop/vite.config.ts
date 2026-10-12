@@ -199,7 +199,10 @@ export default defineConfig(({ mode }) => {
       },
       dedupe: ["react", "react-dom", "lucide-react"],
     },
-    server: { port: 5174, strictPort: true },
+    // 显式绑定 IPv4 回环：部分 Windows 环境 localhost 解析到 ::1 且 IPv6 回环不可用，
+    // scripts/dev.mjs 的启动探测会依次尝试三个 loopback 地址，只有 IPv4 能命中的机器上
+    // 必须让 Vite 监听 127.0.0.1，否则 Electron 永远等不到 dev server。
+    server: { host: "127.0.0.1", port: 5174, strictPort: true },
     define: {
       __ZCODE_VERSION__: JSON.stringify(buildMetadata.appVersion),
       __ZCODE_COMMIT__: JSON.stringify(buildMetadata.buildCommitId),
