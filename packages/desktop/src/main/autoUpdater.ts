@@ -22,6 +22,11 @@ import {
 import { logger } from "./logger.js";
 import { ManifestUpdateProvider, getElectronReleasePlatform } from "./manifestUpdateProvider.js";
 
+// 构建期注入的默认更新源（构建环境变量或 config/private/build-defaults.json），
+// 仅当启动参数与环境变量都未设置时兜底。非构建环境（测试等）下 define 不存在，
+// 用 typeof 检查避免 ReferenceError。
+declare const __ZCODE_UPDATE_FEED_URL__: string;
+
 export const CHECK_FOR_UPDATE_MENU_ID = "check-for-update";
 const AUTO_UPDATE_POLL_INTERVAL_MS = 15 * 60 * 1000;
 const AUTO_UPDATE_VISIBLE_POLL_INTERVAL_MS = 2 * 60 * 1000;
@@ -727,6 +732,13 @@ function readSwitchValue(argv: readonly string[], switchName: string): string | 
   return undefined;
 }
 
+function readBuildTimeUpdateFeedUrl(): string | undefined {
+  if (typeof __ZCODE_UPDATE_FEED_URL__ === "undefined") {
+    return undefined;
+  }
+  return __ZCODE_UPDATE_FEED_URL__.trim() || undefined;
+}
+
 export function resolveUpdateFeedSourceFromStartupConfig(
   options: {
     argv?: readonly string[];
@@ -735,7 +747,10 @@ export function resolveUpdateFeedSourceFromStartupConfig(
 ): RuntimeUpdateFeedSource | undefined {
   const argv = options.argv ?? process.argv;
   const env = options.env ?? process.env;
-  const feedUrl = readSwitchValue(argv, UPDATE_FEED_URL_SWITCH) ?? env[UPDATE_FEED_URL_ENV]?.trim();
+  const feedUrl =
+    readSwitchValue(argv, UPDATE_FEED_URL_SWITCH) ??
+    env[UPDATE_FEED_URL_ENV]?.trim() ??
+    readBuildTimeUpdateFeedUrl();
   return feedUrl
     ? {
         url: feedUrl,

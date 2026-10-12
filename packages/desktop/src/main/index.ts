@@ -2233,11 +2233,19 @@ app.whenReady().then(async () => {
   logWindowsBundledRuntimeIntegrityDiagnostic();
 
   // 启动自动更新检查（后台执行，不阻塞主界面）
-  // Preview 身份无论连接哪个后端都不自动更新：stable feed 上只分发正式 ZCode 安装包，
-  // 不向 Preview 渠道提供更新。构建期未启用自动更新时同样不更新
-  // （见 docs/desktop/build-time-optional-capabilities.md）。
+  // Preview 身份默认不自动更新：官方 stable feed 只分发正式 ZCode 安装包，
+  // 不向 Preview 渠道提供更新。定制分发通过自定义更新源（ZCODE_UPDATE_FEED_URL，
+  // 运行时环境变量或构建期注入）提供自有安装包，不存在误装官方包的问题，
+  // 此时 Preview 身份同样启用自动更新。构建期未启用自动更新（ZCODE_AUTO_UPDATE）时
+  // 一律不更新（见 docs/desktop/build-time-optional-capabilities.md）。
+  const updateFeedSource = resolveUpdateFeedSourceFromStartupConfig({
+    argv: process.argv,
+    env: process.env,
+  });
   void initAutoUpdater({
-    enabled: ZCODE_PRODUCT_FLAVOR === "production" && ZCODE_AUTO_UPDATE_ENABLED,
+    enabled:
+      ZCODE_AUTO_UPDATE_ENABLED &&
+      (ZCODE_PRODUCT_FLAVOR === "production" || updateFeedSource !== undefined),
     onBeforeQuitAndInstall: async () => {
       notifyStabilityLifecycle("update_install");
       await prepareAppQuit("auto-update quitAndInstall", "update-install");
@@ -2249,10 +2257,7 @@ app.whenReady().then(async () => {
     locale: currentApplicationLocale,
     deviceMid,
     resolveEndpointOrigin: resolveCurrentZCodeEndpointOrigin,
-    updateFeedSource: resolveUpdateFeedSourceFromStartupConfig({
-      argv: process.argv,
-      env: process.env,
-    }),
+    updateFeedSource,
   });
 
   if (process.platform === "darwin" || process.platform === "win32") {
