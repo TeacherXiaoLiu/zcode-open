@@ -32,6 +32,7 @@ import { useZCodeIntl } from "@/i18n/IntlProvider.js";
 import { useOptionalServices } from "@/hooks/useServices.js";
 import { ProactiveSuggestionsSetting } from "@/settings/ProactiveSuggestionsSetting.js";
 import { DynamicWorkflowModeSetting } from "@/settings/DynamicWorkflowModeSetting.js";
+import { SessionTitleRefreshSetting } from "@/settings/SessionTitleRefreshSetting.js";
 import { normalizeInterfaceMode, type InterfaceMode } from "@/lib/interfaceMode.js";
 import {
   createSettingsPageConfig,
@@ -833,6 +834,13 @@ export function GeneralSectionContent({
           }
         />
       </SettingsGroupCard>
+
+      {/* 定制（本地分支）：会话标题自动刷新设置；规则见 specs/session-title-auto-refresh.md。 */}
+      {hasServices ? (
+        <SettingsGroupCard>
+          <SessionTitleRefreshSetting />
+        </SettingsGroupCard>
+      ) : null}
 
       <SettingsGroupCard>
         <SettingsRow

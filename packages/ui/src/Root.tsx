@@ -471,11 +471,18 @@ function RootInner({
     if (!appSettings) {
       return;
     }
+    // 定制（本地分支）：标题刷新参数随运行时偏好一并发给 Agent（热更新语义，改后下轮生效）。
+    const sessionTitleRefresh = {
+      enabled: appSettings.sessionTitleRefreshEnabled !== false,
+      firstRound: appSettings.sessionTitleRefreshFirstRound ?? 3,
+      interval: appSettings.sessionTitleRefreshInterval ?? 5,
+    };
     void services.zcodeAgentService
       .syncAppRuntimePreferences({
         askUserQuestionAutoResolutionEnabled:
           appSettings.askUserQuestionAutoResolutionEnabled !== false,
         modelIoFullRetentionEnabled: appSettings.modelIoFullRetentionEnabled === true,
+        sessionTitleRefresh,
       })
       .catch((error) => {
         logger.warn("[settings] 初始化运行时偏好失败", error);
@@ -485,6 +492,7 @@ function RootInner({
         askUserQuestionAutoResolutionEnabled:
           appSettings.askUserQuestionAutoResolutionEnabled !== false,
         modelIoFullRetentionEnabled: appSettings.modelIoFullRetentionEnabled === true,
+        sessionTitleRefresh,
       })
       .catch((error) => {
         logger.warn("[settings] 初始化 Bot 运行时偏好失败", error);
@@ -492,6 +500,9 @@ function RootInner({
   }, [
     appSettings?.askUserQuestionAutoResolutionEnabled,
     appSettings?.modelIoFullRetentionEnabled,
+    appSettings?.sessionTitleRefreshEnabled,
+    appSettings?.sessionTitleRefreshFirstRound,
+    appSettings?.sessionTitleRefreshInterval,
     services.botsService,
     services.zcodeAgentService,
   ]);

@@ -1081,6 +1081,32 @@ export function WorkspaceGroupedTasksSection({
     [applyOrder, authoritativeView, intl],
   );
 
+  // 定制（本地分支）：重命名对话框「生成新标题」——经 task service 生成候选（只生成不保存），
+  // 无候选/失败不填输入框，保留原输入。
+  const handleGenerateRenameTitle = useCallback(async () => {
+    if (!renamingTaskKey) {
+      return;
+    }
+    const task = findTaskInGroupedView(view, renamingTaskKey);
+    if (!task) {
+      return;
+    }
+    const workspaceServices = workspaceServiceLookup.get(
+      buildTaskWorkspaceKey(task.workspacePath, task.workspaceIdentity),
+    );
+    if (!workspaceServices) {
+      return;
+    }
+    const result = await workspaceServices.services.zcodeTaskService.generateTaskTitle({
+      taskId: task.taskId,
+      workspacePath: task.workspacePath,
+      ...(task.workspaceIdentity ? { workspaceIdentity: task.workspaceIdentity } : {}),
+    });
+    if (result?.title) {
+      setRenameDraft(result.title);
+    }
+  }, [renamingTaskKey, view, workspaceServiceLookup]);
+
   const handleSubmitRenameTask = useCallback(async () => {
     if (!renamingTaskKey) {
       return;
@@ -1895,6 +1921,7 @@ export function WorkspaceGroupedTasksSection({
           }
         }}
         onChange={setRenameDraft}
+        onGenerateTitle={handleGenerateRenameTitle}
         onCancel={handleCancelRenameTask}
         onConfirm={() => {
           void handleSubmitRenameTask();

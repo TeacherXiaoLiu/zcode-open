@@ -144,7 +144,10 @@ export function useSettings() {
       await refresh();
       if (
         typeof patch.askUserQuestionAutoResolutionEnabled === "boolean" ||
-        typeof patch.modelIoFullRetentionEnabled === "boolean"
+        typeof patch.modelIoFullRetentionEnabled === "boolean" ||
+        patch.sessionTitleRefreshEnabled !== undefined ||
+        patch.sessionTitleRefreshFirstRound !== undefined ||
+        patch.sessionTitleRefreshInterval !== undefined
       ) {
         const preferences = {
           askUserQuestionAutoResolutionEnabled:
@@ -153,6 +156,21 @@ export function useSettings() {
           modelIoFullRetentionEnabled:
             patch.modelIoFullRetentionEnabled ??
             settingsStore.snapshot.settings?.modelIoFullRetentionEnabled === true,
+          // 定制（本地分支）：标题刷新参数总是构造完整结构（Agent 端协议载荷要求全字段）；
+          // 兜底值只为收窄 AppSettings 的类型面，与 schema 默认档一致。
+          sessionTitleRefresh: {
+            enabled:
+              patch.sessionTitleRefreshEnabled ??
+              settingsStore.snapshot.settings?.sessionTitleRefreshEnabled !== false,
+            firstRound:
+              patch.sessionTitleRefreshFirstRound ??
+              settingsStore.snapshot.settings?.sessionTitleRefreshFirstRound ??
+              3,
+            interval:
+              patch.sessionTitleRefreshInterval ??
+              settingsStore.snapshot.settings?.sessionTitleRefreshInterval ??
+              5,
+          },
         };
         const syncResults = await Promise.allSettled([
           zcodeAgentService.syncAppRuntimePreferences(preferences),

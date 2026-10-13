@@ -2472,6 +2472,19 @@ const zhCN: Record<string, string> = {
   "settings.taskAutoArchiveDays.option.7": "7 天后归档",
   "settings.taskAutoArchiveDays.option.14": "14 天后归档",
   "settings.taskAutoArchiveDays.option.30": "30 天后归档",
+  "settings.sessionTitleRefresh": "会话标题自动刷新",
+  "settings.sessionTitleRefresh.description":
+    "会话进行中按固定轮次用最近的对话重新总结标题，避免标题长期停留在最初一句话。只影响标题，不影响对话内容。",
+  "settings.sessionTitleRefresh.firstRound": "首次刷新轮次",
+  "settings.sessionTitleRefresh.firstRoundDescription":
+    "第几个用户轮次完成后首次刷新标题（1-50）。",
+  "settings.sessionTitleRefresh.interval": "刷新间隔",
+  "settings.sessionTitleRefresh.intervalDescription":
+    "之后每多少个用户轮次刷新一次标题（1-100）。",
+  "settings.sessionTitleRefresh.currentRule": "当前规则",
+  "settings.sessionTitleRefresh.rule": "第 {firstRound} 轮起，每 {interval} 轮刷新一次",
+  "settings.sessionTitleRefresh.ruleDisabled": "已关闭（仅保留开头一次标题生成）",
+  "settings.sessionTitleRefresh.saveError": "更新会话标题刷新设置失败",
   "settings.dataBaseDir": "数据存储路径",
   "settings.dataBaseDirDescription":
     "应用数据的根目录（默认为用户主目录），修改后会将现有数据复制到新位置。路径后缀 .zcode/v2 不可更改。",

@@ -293,6 +293,22 @@ export function WorkspaceHeaderTitleSection({
     setRenameDraft("");
   };
 
+  // 定制（本地分支）：重命名对话框「生成新标题」——经 task service 生成候选（只生成不保存），
+  // 无候选/失败不填输入框，保留原输入。
+  const handleGenerateRenameTitle = async () => {
+    if (!renamingTaskId) {
+      return;
+    }
+    const result = await services.zcodeTaskService.generateTaskTitle({
+      taskId: renamingTaskId,
+      workspacePath: workspaceAbsPath,
+      ...(workspaceIdentity ? { workspaceIdentity } : {}),
+    });
+    if (result?.title) {
+      setRenameDraft(result.title);
+    }
+  };
+
   const buildHeaderTaskSnapshot = (
     fallbackTask: ZCodeTaskMeta,
     overrides?: Partial<ZCodeTaskMeta>,
@@ -441,6 +457,7 @@ export function WorkspaceHeaderTitleSection({
           }
         }}
         onChange={setRenameDraft}
+        onGenerateTitle={handleGenerateRenameTitle}
         onCancel={handleCancelRenameTask}
         onConfirm={() => {
           void handleSubmitRenameTask();

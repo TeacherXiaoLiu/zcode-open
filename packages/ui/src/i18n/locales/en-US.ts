@@ -2628,6 +2628,19 @@ const enUS: Record<string, string> = {
   "settings.taskAutoArchiveDays.option.7": "Archive after 7 days",
   "settings.taskAutoArchiveDays.option.14": "Archive after 14 days",
   "settings.taskAutoArchiveDays.option.30": "Archive after 30 days",
+  "settings.sessionTitleRefresh": "Automatic session title refresh",
+  "settings.sessionTitleRefresh.description":
+    "Re-summarizes the session title from recent conversation at a fixed round grid, so the title does not stay on the first message. Affects the title only, not the conversation.",
+  "settings.sessionTitleRefresh.firstRound": "First refresh round",
+  "settings.sessionTitleRefresh.firstRoundDescription":
+    "Refresh the title once this many user rounds have completed (1-50).",
+  "settings.sessionTitleRefresh.interval": "Refresh interval",
+  "settings.sessionTitleRefresh.intervalDescription":
+    "Re-summarize the title every this many user rounds thereafter (1-100).",
+  "settings.sessionTitleRefresh.currentRule": "Current rule",
+  "settings.sessionTitleRefresh.rule": "Refresh every {interval} rounds, starting from round {firstRound}",
+  "settings.sessionTitleRefresh.ruleDisabled": "Disabled (initial title generation only)",
+  "settings.sessionTitleRefresh.saveError": "Could not update session title refresh settings",
   "settings.dataBaseDir": "Data storage path",
   "settings.dataBaseDirDescription":
     "Root directory for app data (defaults to user home directory). Existing data will be copied to the new location. The .zcode/v2 suffix cannot be changed.",

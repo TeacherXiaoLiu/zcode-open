@@ -378,6 +378,28 @@ export function WorkspaceTimelineTasksSection({
 
     return { item, workspaceServices };
   }, []);
+
+  // 定制（本地分支）：重命名对话框「生成新标题」——经 task service 生成候选（只生成不保存），
+  // 无候选/失败不填输入框，保留原输入。
+  const handleGenerateRenameTitle = useCallback(async () => {
+    if (!renamingItemKey) {
+      return;
+    }
+    const current = getCurrentItemContext(renamingItemKey);
+    if (!current) {
+      return;
+    }
+    const { item, workspaceServices } = current;
+    const result = await workspaceServices.services.zcodeTaskService.generateTaskTitle({
+      taskId: item.taskId,
+      workspacePath: item.workspacePath,
+      ...(item.workspaceIdentity ? { workspaceIdentity: item.workspaceIdentity } : {}),
+    });
+    if (result?.title) {
+      setRenameDraft(result.title);
+    }
+  }, [renamingItemKey, getCurrentItemContext]);
+
   const archiveTimelineItem = useCallback(
     (itemKey: string) => {
       const current = getCurrentItemContext(itemKey);
@@ -721,6 +743,7 @@ export function WorkspaceTimelineTasksSection({
             }
           }}
           onChange={setRenameDraft}
+          onGenerateTitle={handleGenerateRenameTitle}
           onCancel={handleCancelRenameTask}
           onConfirm={() => {
             if (!renamingItemKey) {
