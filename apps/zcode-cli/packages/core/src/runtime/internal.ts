@@ -1,4 +1,5 @@
 import { PermissionService, ToolScheduler } from "./deps.js";
+import type { SessionTitleRefreshConfig } from "./methods/title-refresh-schedule.js";
 import type {
   Logger,
   ModelSelection,
@@ -165,5 +166,10 @@ export interface AgentRuntimeInternal
   pendingModelChangeTimeline?: PendingModelChangeTimeline;
   sessionStartHookRan: boolean;
   sessionTitleGenerationAttempted: boolean;
+  /**
+   * 定制（本地分支）：会话标题定期刷新参数；缺省 = 默认档（第 3 轮起每 5 轮，开启）。
+   * 更新此属性即对下一轮完成时的触发判断热生效（specs/session-title-auto-refresh.md）。
+   */
+  sessionTitleRefreshConfig?: SessionTitleRefreshConfig;
   agentTelemetry: RuntimeTelemetryFacade;
 }

@@ -23,7 +23,8 @@ export const SESSION_TITLE_QUERY_SOURCE = "session_title";
 export const GOAL_SUMMARY_TITLE_QUERY_SOURCE = "goal_summary_title";
 
 const TITLE_GENERATION_TIMEOUT_MS = 60_000;
-const MAX_TITLE_INPUT_CHARS = 1_200;
+// 导出：标题定期刷新（title-refresh-schedule）复用同一输入预算，保持单一事实源。
+export const MAX_TITLE_INPUT_CHARS = 1_200;
 const MAX_TITLE_CHARS = 100;
 
 // 标题 sidecar 的 user message 是原始 query，弱约束时模型可能把它当成对话请求直接回答。

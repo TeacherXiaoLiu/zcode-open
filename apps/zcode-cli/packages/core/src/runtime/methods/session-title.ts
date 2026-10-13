@@ -1,6 +1,7 @@
 import { SessionEventType, traceContextToLogContext } from "../deps.js";
 import type {
   MessageId,
+  MessagePart,
   MessageWithParts,
   ModelSelection,
   SessionInfo,
@@ -14,10 +15,18 @@ import {
   persistGeneratedGoalSummaryTitle,
 } from "./goal-summary-title.js";
 import {
+  MAX_TITLE_INPUT_CHARS,
   SESSION_TITLE_QUERY_SOURCE,
   generateTitleCandidate,
   normalizeTitleInput,
 } from "./title-generation-sidecar.js";
+import {
+  buildTitleRefreshInputText,
+  isTitleRefreshDueAtRound,
+  normalizeSessionTitleRefreshConfig,
+  selectTitleRefreshSamples,
+  type SessionTitleRefreshConfig,
+} from "./title-refresh-schedule.js";
 
 const GENERATED_TITLE_EXPECTED_SOURCES: readonly SessionTitleSource[] = [
   "default",
@@ -404,4 +413,84 @@ async function hasEditedFirstVisibleUserQuery(
 function isVisibleRealUserMessage(message: MessageWithParts): boolean {
   const info = message.info;
   return info.role === "user" && info.synthetic !== true && info.visibility !== "model-only";
+}
+
+/**
+ * 定制（本地分支）：会话标题定期刷新——turn 完成时的触发入口。
+ *
+ * 与首轮的 maybeStartSessionTitleGeneration 相互独立：后者带一次性 attempt 标记且只认
+ * 第 0 轮；这里每次完成都做一次纯判断，只有「已完成轮次正好落在绝对网格上」才发起。
+ * 轮次口径 = 会话里可见真实用户消息的数量（与首轮生成的真实输入口径一致）；中途改参数、
+ * 重启、恢复旧会话都不补跑历史。生成与持久化复用既有 sidecar 链路（custom 来源保护、
+ * first-query-edit 抑制、原子竞态写与 SessionTitleUpdated 事件全不变），失败仅记日志、
+ * 保留旧标题。规则与验收见 specs/session-title-auto-refresh.md。
+ */
+export function maybeStartSessionTitleRefresh(
+  this: AgentRuntimeInternal,
+  traceContext: TraceContext,
+): void {
+  if (!this.config.titleGeneration) return;
+  if (this.config.parentSessionId) return;
+  if (this.config.taskType && this.config.taskType !== "interactive") return;
+  if (!this.sessionStore) return;
+  const refreshConfig = normalizeSessionTitleRefreshConfig(this.sessionTitleRefreshConfig);
+  if (!refreshConfig.enabled) return;
+
+  const causation = this.agentTelemetry.captureCausation();
+  const refresh = runSessionTitleRefresh
+    .call(this, refreshConfig, traceContext, causation)
+    .catch((error) => {
+      this.logger?.warn("Session title refresh failed", {
+        ...traceContextToLogContext(traceContext),
+        errorMessage: error instanceof Error ? error.message : String(error),
+        event: "session_title_refresh.failed",
+        module: "core.runtime",
+        status: "failed",
+      });
+    });
+  void this.trackResidencyBlockingWork(refresh).catch((error) => {
+    this.logger?.warn("Session title refresh accounting failed", {
+      ...traceContextToLogContext(traceContext),
+      errorMessage: error instanceof Error ? error.message : String(error),
+      event: "session_title_refresh.accounting_failed",
+      module: "core.runtime",
+      status: "failed",
+    });
+  });
+}
+
+async function runSessionTitleRefresh(
+  this: AgentRuntimeInternal,
+  refreshConfig: SessionTitleRefreshConfig,
+  traceContext: TraceContext,
+  causation: AgentTelemetryCausation | undefined,
+): Promise<void> {
+  const messages = await this.sessionStore?.messages({ sessionID: this.sessionId });
+  if (!messages) return;
+  const realUserTexts = messages
+    .filter((message) => isVisibleRealUserMessage(message))
+    .map((message) =>
+      message.parts
+        .filter((part): part is Extract<MessagePart, { type: "text" }> => part.type === "text")
+        .map((part) => part.text)
+        .join("\n")
+        .trim(),
+    )
+    .filter((text) => text.length > 0);
+  // 轮次用全量计数；取样另行「首条 + 最近若干条」，两者口径不同不要混用。
+  if (!isTitleRefreshDueAtRound(realUserTexts.length, refreshConfig)) return;
+  const input = buildTitleRefreshInputText(
+    selectTitleRefreshSamples(realUserTexts),
+    MAX_TITLE_INPUT_CHARS,
+  );
+  if (!input) return;
+  this.logger?.info("Session title refresh started", {
+    ...traceContextToLogContext(traceContext),
+    event: "session_title_refresh.started",
+    module: "core.runtime",
+    querySource: SESSION_TITLE_QUERY_SOURCE,
+    rounds: realUserTexts.length,
+    status: "started",
+  });
+  await generateAndPersistSessionTitle.call(this, input, undefined, traceContext, { causation });
 }

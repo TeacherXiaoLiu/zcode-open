@@ -52,6 +52,7 @@ import { runRegularTurnLoop } from "./turn-loop.js";
 import {
   maybeStartDeferredSessionTitleGeneration,
   maybeStartSessionTitleGeneration,
+  maybeStartSessionTitleRefresh,
 } from "./session-title.js";
 import type { RegularTurnLoopState } from "./turn-loop-state.js";
 import { finishOutputTokenRecovery } from "./turn-output-token-continuation.js";
@@ -733,6 +734,12 @@ export async function executeTurnCommand(
             userMessageId,
             turnTraceContext,
           );
+        }
+        // 定制：真实用户轮次完成时按绝对网格检查标题定期刷新（specs/session-title-auto-refresh.md）。
+        // 与上面的 headers 重试相互独立；轮次计数与取样在触发函数内部按会话真实历史重算，
+        // 中途改参数 / 重启不补跑历史。
+        if (userMessageId) {
+          maybeStartSessionTitleRefresh.call(this, turnTraceContext);
         }
         this.turnNumber++;
 
