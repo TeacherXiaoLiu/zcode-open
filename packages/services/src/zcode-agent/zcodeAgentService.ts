@@ -134,6 +134,7 @@ import {
   zcodeWorkspaceHookTrustGrantResultSchema,
   zcodeWorkspaceUpdateInteractionPreferencesResultSchema,
   zcodeWorkspaceUpdateModelIoPreferencesResultSchema,
+  zcodeWorkspaceUpdateSessionTitleRefreshPreferencesResultSchema,
   zcodeProviderUpdateAccountConfigResultSchema,
   type ZCodeSessionStateSnapshot,
   type ZCodeAutomation,
@@ -1619,6 +1620,23 @@ export function createZCodeAgentService(
         } catch (error) {
           // 新 Host 兼容尚未升级的 CLI：只有 method-not-found 可降级，其他同步失败仍需上抛。
           if (!isProtocolMethodNotFoundError(error)) throw error;
+        }
+        // 本地定制：标题刷新参数只在载荷显式携带时推送；缺失表示「不改动 agent 端当前值」，
+        // 不能把缺失归一成默认档，否则旧 UI 载荷会重置用户已改的档位。
+        if (params.preferences.sessionTitleRefresh) {
+          try {
+            await params.client.request(
+              zcodeProtocolMethods.workspaceUpdateSessionTitleRefreshPreferences,
+              {
+                workspace: buildWorkspaceRef(params.workspace),
+                preferences: params.preferences.sessionTitleRefresh,
+              },
+              zcodeWorkspaceUpdateSessionTitleRefreshPreferencesResultSchema,
+            );
+          } catch (error) {
+            // 同 ModelIO：旧 CLI 不认识该方法时降级忽略。
+            if (!isProtocolMethodNotFoundError(error)) throw error;
+          }
         }
       });
     interactionPreferenceSyncByWorkspaceKey.set(workspaceKey, current);
@@ -3771,6 +3789,10 @@ export function createZCodeAgentService(
       const normalizedPreferences: ZCodeAgentAppRuntimePreferences = {
         ...preferences,
         modelIoFullRetentionEnabled: preferences.modelIoFullRetentionEnabled === true,
+        // 复制快照，避免调用方复用同一对象并就地修改时改到已入队的载荷。
+        ...(preferences.sessionTitleRefresh
+          ? { sessionTitleRefresh: { ...preferences.sessionTitleRefresh } }
+          : {}),
       };
       latestAppRuntimePreferences = normalizedPreferences;
       const activeClients = [...activeClientsByWorkspaceKey.values()];

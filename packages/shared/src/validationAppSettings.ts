@@ -511,6 +511,11 @@ const appSettingsObjectSchema = z.object({
   onboardingOccupation: appSettingsOccupationSchema.nullish(),
   proactiveSuggestionsEnabled: z.boolean().optional(),
   memoryEnabled: z.boolean().default(false),
+  // 会话标题自动刷新（本地定制）：默认档与 core 的 DEFAULT_SESSION_TITLE_REFRESH 对齐
+  // （第 3 轮起每 5 轮）；边界与 title-refresh-schedule 的 HARD_BOUNDS 一致。
+  sessionTitleRefreshEnabled: z.boolean().default(true),
+  sessionTitleRefreshFirstRound: z.number().int().min(1).max(50).default(3),
+  sessionTitleRefreshInterval: z.number().int().min(1).max(100).default(5),
   lastWorkspaceSession: z.array(appWorkspaceSessionEntrySchema).default([]),
   lastActiveTabIndex: z.number().int().nonnegative().default(0),
   lastActiveTaskByWorkspace: z.record(z.string(), z.string()).optional(),
@@ -604,6 +609,9 @@ export const appSettingsPatchSchema = z.object({
     .nullish(),
   proactiveSuggestionsEnabled: z.boolean().optional(),
   memoryEnabled: z.boolean().optional(),
+  sessionTitleRefreshEnabled: z.boolean().optional(),
+  sessionTitleRefreshFirstRound: z.number().int().min(1).max(50).optional(),
+  sessionTitleRefreshInterval: z.number().int().min(1).max(100).optional(),
   lastWorkspaceSession: z.array(appWorkspaceSessionEntrySchema).optional(),
   lastActiveTabIndex: z.number().int().nonnegative().optional(),
   lastActiveTaskByWorkspace: z.record(z.string(), z.string()).optional(),

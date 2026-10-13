@@ -2078,6 +2078,14 @@ export const zcodeSessionRuntimePreferencesResultSchema = z
     modelContextBudgetStrategy: zcodeModelContextBudgetStrategySchema.default(
       DEFAULT_ZCODE_MODEL_CONTEXT_BUDGET_STRATEGY,
     ),
+    // 本地定制：会话标题自动刷新参数；旧 Host 缺席时由 CLI 回退进程级偏好缓存或默认档。
+    sessionTitleRefresh: z
+      .object({
+        enabled: z.boolean(),
+        firstRound: z.number().int(),
+        interval: z.number().int(),
+      })
+      .optional(),
   })
   .strict();
 export type ZCodeSessionRuntimePreferencesResult = z.infer<
@@ -2600,6 +2608,42 @@ export const zcodeWorkspaceUpdateModelIoPreferencesResultSchema = z
   .strict();
 export type ZCodeWorkspaceUpdateModelIoPreferencesResult = z.infer<
   typeof zcodeWorkspaceUpdateModelIoPreferencesResultSchema
+>;
+
+// 本地定制：会话标题自动刷新参数。边界与 core title-refresh-schedule 的
+// HARD_BOUNDS 一致，超界在协议层 fail fast，runtime 侧再有夹紧兜底。
+export const zcodeSessionTitleRefreshPreferencesSchema = z
+  .object({
+    enabled: z.boolean(),
+    firstRound: z.number().int().min(1).max(50),
+    interval: z.number().int().min(1).max(100),
+  })
+  .strict();
+export type ZCodeSessionTitleRefreshPreferences = z.infer<
+  typeof zcodeSessionTitleRefreshPreferencesSchema
+>;
+
+export const zcodeWorkspaceUpdateSessionTitleRefreshPreferencesParamsSchema = z
+  .object({
+    workspace: zcodeWorkspaceRefSchema,
+    preferences: zcodeSessionTitleRefreshPreferencesSchema,
+  })
+  .strict();
+export type ZCodeWorkspaceUpdateSessionTitleRefreshPreferencesParams = z.infer<
+  typeof zcodeWorkspaceUpdateSessionTitleRefreshPreferencesParamsSchema
+>;
+
+export const zcodeWorkspaceUpdateSessionTitleRefreshPreferencesResultSchema = z
+  .object({
+    workspace: zcodeWorkspaceRefSchema,
+    enabled: z.boolean(),
+    firstRound: z.number().int(),
+    interval: z.number().int(),
+    updatedSessionCount: z.number().int().nonnegative(),
+  })
+  .strict();
+export type ZCodeWorkspaceUpdateSessionTitleRefreshPreferencesResult = z.infer<
+  typeof zcodeWorkspaceUpdateSessionTitleRefreshPreferencesResultSchema
 >;
 
 export const zcodeWorkspaceUpdateOffPeakToolPolicyParamsSchema = z
@@ -4115,6 +4159,8 @@ export const zcodeProtocolMethods = {
   providerUpdateAccountConfig: "provider/updateAccountConfig",
   workspaceUpdateInteractionPreferences: "workspace/updateInteractionPreferences",
   workspaceUpdateModelIoPreferences: "workspace/updateModelIoPreferences",
+  // 本地定制：会话标题自动刷新参数（同步模式同 ModelIO；旧 CLI method-not-found → host 降级忽略）。
+  workspaceUpdateSessionTitleRefreshPreferences: "workspace/updateSessionTitleRefreshPreferences",
   // Off-Peak 工具面门禁是 workspace 级事实（灰度 + 本地/远程），由 host 在 agent 就绪时同步；
   // CLI 对 legacy create/resume 与 v4 冷恢复统一读取。旧 CLI method-not-found → host 降级忽略。
   workspaceUpdateOffPeakToolPolicy: "workspace/updateOffPeakToolPolicy",

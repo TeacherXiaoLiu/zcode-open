@@ -24,6 +24,7 @@ import {
 } from "../helpers/child-client-ports.js";
 import type { AgentRuntimeConfig, ActiveTurnInfo } from "../types.js";
 import type { AgentRuntimeInternal } from "../internal.js";
+import type { SessionTitleRefreshConfig } from "./title-refresh-schedule.js";
 import { cloneModelSelection } from "../model-selection.js";
 import { applyRuntimeExecutionState } from "../execution-state.js";
 
@@ -69,6 +70,18 @@ export function updateConfig(
       rebuildContextPrefix(this);
     }
   }
+}
+
+/**
+ * 定制（本地分支）：应用 Host 推送的标题刷新参数
+ * （workspace/updateSessionTitleRefreshPreferences）。只更新调度参数、不触发补跑：
+ * 下一轮完成时的触发判断自然读到新值（specs/session-title-auto-refresh.md「热更新」）。
+ */
+export function setSessionTitleRefreshConfig(
+  this: AgentRuntimeInternal,
+  config: SessionTitleRefreshConfig,
+): void {
+  this.sessionTitleRefreshConfig = config;
 }
 
 export function initializeSessionShellEnvironmentIfNeeded(

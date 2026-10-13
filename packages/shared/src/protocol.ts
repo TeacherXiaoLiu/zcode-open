@@ -351,6 +351,16 @@ export interface AppSettings {
   nativeSearchEnhancementsEnabled?: boolean;
   /** 新建或冷恢复 Session 是否启用 Memory；默认关闭。 */
   memoryEnabled?: boolean;
+  /**
+   * 会话标题自动刷新（本地定制，specs/session-title-auto-refresh.md）：
+   * 真实用户轮次完成时按绝对轮次网格重新生成标题的总开关；默认开启。
+   * 三个字段分开存储而非嵌套对象：设置补丁是浅合并，单字段提交不会重置其余值。
+   */
+  sessionTitleRefreshEnabled?: boolean;
+  /** 首次刷新发生在第几个真实用户轮次完成后（1-50）。 */
+  sessionTitleRefreshFirstRound?: number;
+  /** 之后每多少轮刷新一次（1-100）。 */
+  sessionTitleRefreshInterval?: number;
   onboardingOccupation?:
     | "office"
     | "developer"

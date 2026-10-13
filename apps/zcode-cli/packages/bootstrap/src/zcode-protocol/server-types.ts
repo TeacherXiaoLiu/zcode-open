@@ -11,7 +11,7 @@ import {
   type TraceContext,
 } from "@zcode/contracts";
 import type { McpTelemetryTracker } from "@zcode/adapters";
-import type { WorkspaceHookPolicyProvider } from "@zcode/core";
+import type { SessionTitleRefreshConfig, WorkspaceHookPolicyProvider } from "@zcode/core";
 import type { AccountProviderConfigSnapshot } from "@zcode/provider";
 import {
   zcodeProtocolErrorCodes,
@@ -147,6 +147,11 @@ export interface ZCodeProtocolAgentServerContext {
      * 缺席（旧 Host 只发布尔）= alwaysOn；`onDemand` 让 createRecord 写 runtimeConfig.dynamicWorkflowToolsOnDemand。
      */
     dynamicWorkflowMode?: DynamicWorkflowMode;
+    /**
+     * 本地定制：会话标题自动刷新参数（Host 经 workspace/updateSessionTitleRefreshPreferences 同步）。
+     * 供 v4 冷恢复等无 host 参数的路径读取；缺省 = 运行读取点回退默认档。
+     */
+    sessionTitleRefresh?: SessionTitleRefreshConfig;
   };
   // 竖切：v4 conversation 通道（订阅/帧/命令），与旧 session/* 方法并存。
   // 构造顺序问题（gateway 闭包持有 context）用可选字段收口，server 构造完立即赋值。

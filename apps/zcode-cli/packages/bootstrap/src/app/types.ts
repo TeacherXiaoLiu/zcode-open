@@ -81,6 +81,7 @@ import type {
   PresentationSurface,
   ProviderRuntimeHeadersPort,
   ResumeSessionResult,
+  SessionTitleRefreshConfig,
   StartSavedWorkflowRunResult,
   TurnAttachment,
   TurnResult,
@@ -710,6 +711,8 @@ export interface ZCodeApp {
     traceId: TraceContext["traceId"];
   }>;
   setModelIoFullRetentionEnabled?(enabled: boolean): void;
+  /** 定制（本地分支）：应用 Host 推送的标题刷新参数（热更新，不补跑；specs/session-title-auto-refresh.md）。 */
+  setSessionTitleRefreshConfig?(config: SessionTitleRefreshConfig): void;
   setModel(
     modelId: string | ModelSelection,
     options?: {

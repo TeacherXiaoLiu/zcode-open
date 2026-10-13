@@ -4,6 +4,7 @@ export type {
   WorkspaceGenerateTextResult,
 } from "./runtime/methods/workspace-generate-text.js";
 export type { StartSavedWorkflowRunResult } from "./runtime/methods/dynamic-workflow-run-start.js";
+export type { SessionTitleRefreshConfig } from "./runtime/methods/title-refresh-schedule.js";
 export type {
   AmendWorkflowRunSettingsInput,
   AmendWorkflowRunSettingsResult,

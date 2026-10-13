@@ -282,3 +282,40 @@ describe("dynamicWorkflowMode 设置（DWG-19）", () => {
     );
   });
 });
+
+// 定制（本地分支）：会话标题自动刷新（specs/session-title-auto-refresh.md）。
+// 平铺三字段：浅合并语义下部分 patch 只改提交字段，不会重置其余值（由结构保证）。
+describe("sessionTitleRefresh 设置（本地定制）", () => {
+  it("默认档与 core DEFAULT_SESSION_TITLE_REFRESH 对齐（启用 / 3 / 5）", () => {
+    const settings = appSettingsSchema.parse({});
+    expect(settings.sessionTitleRefreshEnabled).toBe(true);
+    expect(settings.sessionTitleRefreshFirstRound).toBe(3);
+    expect(settings.sessionTitleRefreshInterval).toBe(5);
+  });
+
+  it("补丁只包含提交字段；边界 1-50 / 1-100 外的值被拒绝", () => {
+    expect(appSettingsPatchSchema.parse({ sessionTitleRefreshInterval: 10 })).toEqual({
+      sessionTitleRefreshInterval: 10,
+    });
+    for (const patch of [
+      { sessionTitleRefreshFirstRound: 0 },
+      { sessionTitleRefreshFirstRound: 51 },
+      { sessionTitleRefreshInterval: 0 },
+      { sessionTitleRefreshInterval: 101 },
+    ]) {
+      expect(appSettingsPatchSchema.safeParse(patch).success).toBe(false);
+    }
+  });
+
+  it("旧设置文件缺字段时读成默认档，其余字段不受影响", () => {
+    const settings = appSettingsSchema.parse({
+      locale: "en-US",
+      recentProjects: ["/workspace/demo"],
+    });
+    expect(settings.locale).toBe("en-US");
+    expect(settings.recentProjects).toEqual(["/workspace/demo"]);
+    expect(settings.sessionTitleRefreshEnabled).toBe(true);
+    expect(settings.sessionTitleRefreshFirstRound).toBe(3);
+    expect(settings.sessionTitleRefreshInterval).toBe(5);
+  });
+});

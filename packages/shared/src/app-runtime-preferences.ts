@@ -7,6 +7,14 @@ export const appRuntimePreferencesChangedBroadcastPayloadSchema = z
   .object({
     askUserQuestionAutoResolutionEnabled: z.boolean(),
     modelIoFullRetentionEnabled: z.boolean().default(false),
+    // 本地定制：会话标题自动刷新参数。optional 以容忍混合版本窗口里的旧载荷。
+    sessionTitleRefresh: z
+      .object({
+        enabled: z.boolean(),
+        firstRound: z.number().int(),
+        interval: z.number().int(),
+      })
+      .optional(),
   })
   .strict();
 

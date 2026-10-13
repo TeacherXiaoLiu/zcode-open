@@ -2189,6 +2189,14 @@ export function createLocalServices(options: {
               nativeSearchEnhancementsEnabled: settings.nativeSearchEnhancementsEnabled !== false,
               memoryEnabled: settings.memoryEnabled === true,
               modelContextBudgetStrategy,
+              // 本地定制：会话标题自动刷新参数。冷恢复/新会话从这里读设置；
+              // 已 resident 的会话由 Host PUSH（workspace/updateSessionTitleRefreshPreferences）热更新。
+              // 兜底值只为收窄 AppSettings 的类型面（zod parse 后必有值），与 schema 默认档一致。
+              sessionTitleRefresh: {
+                enabled: settings.sessionTitleRefreshEnabled !== false,
+                firstRound: settings.sessionTitleRefreshFirstRound ?? 3,
+                interval: settings.sessionTitleRefreshInterval ?? 5,
+              },
               // user-execution 只消费 Shell；共享默认策略是统一 result schema 的兼容占位，
               // 不会覆盖 runtime-materialization 阶段已经固定的 strategy。
               ...(scope === "user-execution" && settings.integratedTerminalShell

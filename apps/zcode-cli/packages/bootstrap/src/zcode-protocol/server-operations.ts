@@ -8,7 +8,11 @@ import { resolveEffectiveBashShellSelection } from "@zcode/adapters/exec";
 import { inputIntentMetadata } from "../zcode-protocol-v4/commands/input-intent.js";
 import { createModelExecutionContext } from "./model-execution.js";
 import type { SendInputOptions } from "../app/types.js";
-import { repairPersistedRemoteSessionPaths, type TurnAttachment } from "@zcode/core";
+import {
+  repairPersistedRemoteSessionPaths,
+  type SessionTitleRefreshConfig,
+  type TurnAttachment,
+} from "@zcode/core";
 import {
   CoreErrorType,
   SESSION_ENTRY_TARGET_COMPLETION_VERIFICATION,
@@ -160,6 +164,8 @@ interface SessionStartupPreferences {
   memoryEnabled: boolean;
   modelContextBudgetStrategy: ZCodeModelContextBudgetStrategy;
   nativeSearchEnhancementsEnabled: boolean;
+  /** 本地定制：标题刷新参数（host PULL 值或进程级 PUSH 缓存；缺席 = 默认档）。 */
+  sessionTitleRefresh?: SessionTitleRefreshConfig;
   resolveInitialBashShellSelection: () => Promise<ExecutionShellSelection | undefined>;
 }
 
@@ -3255,6 +3261,8 @@ async function requestSessionRuntimePreferences(
         memoryEnabled: false,
         modelContextBudgetStrategy: DEFAULT_ZCODE_MODEL_CONTEXT_BUDGET_STRATEGY,
         nativeSearchEnhancementsEnabled: true,
+        // 本地定制：旧 Host 没有该字段时用进程级 PUSH 缓存兜底（也没有则 runtime 回退默认档）。
+        sessionTitleRefresh: context.appRuntimePreferences.sessionTitleRefresh,
       };
     }
     throw error;
@@ -3274,6 +3282,8 @@ async function resolveSessionStartupPreferences(
       subagentRuntimeConfigEnabled: source.parent.subagentRuntimeConfigEnabled,
       modelContextBudgetStrategy: DEFAULT_ZCODE_MODEL_CONTEXT_BUDGET_STRATEGY,
       nativeSearchEnhancementsEnabled: source.parent.nativeSearchEnhancementsEnabled,
+      // 本地定制：inherit 不发起 host 请求，标题刷新参数取进程级 PUSH 缓存（可能缺席 = 默认档）。
+      sessionTitleRefresh: context.appRuntimePreferences.sessionTitleRefresh,
       resolveInitialBashShellSelection: async () => inheritedShellSelection,
     };
   }
@@ -3293,6 +3303,9 @@ async function resolveSessionStartupPreferences(
     memoryEnabled: runtimePreferences.memoryEnabled,
     modelContextBudgetStrategy: DEFAULT_ZCODE_MODEL_CONTEXT_BUDGET_STRATEGY,
     nativeSearchEnhancementsEnabled: runtimePreferences.nativeSearchEnhancementsEnabled,
+    // 本地定制：host PULL 值优先（设置权威）；旧 Host 缺席时回退进程级 PUSH 缓存。
+    sessionTitleRefresh:
+      runtimePreferences.sessionTitleRefresh ?? context.appRuntimePreferences.sessionTitleRefresh,
     resolveInitialBashShellSelection: async () => {
       const executionPreferences = await requestSessionRuntimePreferences(
         context,
@@ -3402,6 +3415,11 @@ async function createRecord(
       // 这里补一份默认配置开启；具体是否生成仍由 runtime 按 parent/taskType/turnNumber 把关。
       // automation 执行会话显式关闭二次命名，避免回答内容覆盖原始用户 query 标题。
       titleGeneration: params.titleGenerationEnabled === false ? { enabled: false } : {},
+      // 本地定制：标题刷新参数随会话创建/恢复注入（resident 期由 PUSH 热更新覆盖）；
+      // 缺席时不写入，runtime 读取点回退默认档。
+      ...(startupPreferences.sessionTitleRefresh
+        ? { sessionTitleRefresh: startupPreferences.sessionTitleRefresh }
+        : {}),
       workingDirectory: workspace.workspacePath,
       // 身份隔离与路径执行分开：core 只把 identity 写入 session.workspace_id，
       // workingDirectory 仍是远端机器上的实际路径；本地 workspace 保持 undefined。

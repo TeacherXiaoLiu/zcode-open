@@ -25,6 +25,7 @@ import type {
 import type { ZCodeProviderAccountAccess } from "@zcode/shared";
 import type { EffectiveModelSelectionResult } from "@zcode/shared/model-selection";
 import type { RuntimeMessageEntry } from "../agent/message-history.js";
+import type { SessionTitleRefreshConfig } from "./methods/title-refresh-schedule.js";
 import type {
   CompactPhase,
   CompactReason,
@@ -207,6 +208,11 @@ export interface AgentRuntimeConfig {
     modelSelection?: ModelSelection;
     timeoutMs?: number;
   };
+  /**
+   * 定制（本地分支）：会话标题定期刷新参数的初始档（冷恢复/新会话从设置注入）。
+   * 运行中由 setSessionTitleRefreshConfig 热更新；语义见 specs/session-title-auto-refresh.md。
+   */
+  sessionTitleRefresh?: SessionTitleRefreshConfig;
   parentSessionId?: SessionId;
   taskType?: SessionTaskType;
   /**

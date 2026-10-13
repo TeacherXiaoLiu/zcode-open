@@ -112,6 +112,7 @@ import { listPluginUiSurfaces } from "./plugin-ui-surfaces.js";
 import { updateInteractionPreferences } from "./interaction-preferences.js";
 import { updateAccountProviderConfig } from "./account-provider-config.js";
 import { updateModelIoPreferences } from "./model-io-preferences.js";
+import { updateSessionTitleRefreshPreferences } from "./session-title-refresh-preferences.js";
 import { updateOffPeakToolPolicy } from "./off-peak-tool-policy.js";
 import { updateDynamicWorkflowPolicy } from "./dynamic-workflow-policy.js";
 import { grantWorkspaceHookTrustForProtocol } from "./workspace-hook-trust.js";
@@ -683,6 +684,8 @@ export class ZCodeProtocolAgentServer {
         return await updateInteractionPreferences(this.context, request.params);
       case zcodeProtocolMethods.workspaceUpdateModelIoPreferences:
         return await updateModelIoPreferences(this.context, request.params);
+      case zcodeProtocolMethods.workspaceUpdateSessionTitleRefreshPreferences:
+        return await updateSessionTitleRefreshPreferences(this.context, request.params);
       case zcodeProtocolMethods.workspaceUpdateOffPeakToolPolicy:
         return await updateOffPeakToolPolicy(this.context, request.params);
       case zcodeProtocolMethods.workspaceUpdateDynamicWorkflowPolicy:

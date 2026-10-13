@@ -128,6 +128,7 @@ import type {
   WorkspaceForkResult,
 } from "./types.js";
 import type { AgentRuntimeInternal } from "./internal.js";
+import type { SessionTitleRefreshConfig } from "./methods/title-refresh-schedule.js";
 import { InMemoryRuntimeTaskRegistry, type RuntimeTaskRegistry } from "../runtime-task/registry.js";
 import { createMemoryRecallState } from "../memory/recall/index.js";
 import type { MemoryRecallState } from "../memory/recall/index.js";
@@ -310,6 +311,9 @@ export class AgentRuntime {
     // 旧会话的选择缺失不能阻断历史恢复；不在这里制造默认模型。
     this.sessionModelSelection =
       config.modelSelection && cloneModelSelection(config.modelSelection);
+    // 定制（本地分支）：标题刷新参数的初始档（冷恢复/新会话由 Host 从设置注入）；
+    // 之后由 setSessionTitleRefreshConfig 热更新。undefined = 默认档（读取点归一）。
+    runtime.sessionTitleRefreshConfig = config.sessionTitleRefresh;
     this.messageHistory = new MessageHistoryImpl();
     this.readFileState = new Map();
     this.memoryRecallState = createMemoryRecallState();
@@ -393,6 +397,8 @@ export interface AgentRuntime {
   ): Promise<void>;
   getSessionModelSelection(): ModelSelection | undefined;
   setSessionModelSelection(selection: ModelSelection | undefined): void;
+  /** 定制（本地分支）：热更新标题刷新参数；实现见 methods/config.js（proto 挂载）。 */
+  setSessionTitleRefreshConfig(config: SessionTitleRefreshConfig): void;
   getProjectId(): ProjectId;
   ensureSessionPersistedForExternalActivity(
     input: string,

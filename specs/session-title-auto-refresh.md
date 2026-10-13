@@ -36,6 +36,27 @@
   （不新增第二条生成路径）。
 - 失败（超时 / 无路由 / 空标题）保留旧标题，只记日志。
 
+## 设置与热更新链路
+
+存储：`AppSettings` 三个**平铺**字段（`sessionTitleRefreshEnabled` / `FirstRound` / `Interval`）——
+刻意不用嵌套对象：设置补丁是浅合并（`{...current, ...patch}` + schema parse），
+平铺字段的单字段提交不会重置其余字段。schema 默认档与上表一致，边界 1–50 / 1–100。
+
+- **设置页**（`SessionTitleRefreshSetting`）：开关 + 两个滑条（拖动只更新本地草稿，
+  pointerup / keyup / blur 才提交，避免拖动过程高频写盘）+ "当前规则"预览行。
+- **PUSH（resident 会话热更新）**：设置变更经 `useSettings().update` →
+  `zcodeAgentService.syncAppRuntimePreferences` → 协议方法
+  `workspace/updateSessionTitleRefreshPreferences`（每 workspace 串行队列，排在
+  interaction / modelIo 偏好之后）→ CLI handler 写进程级 `appRuntimePreferences.sessionTitleRefresh`
+  + 遍历 resident session 调 `app.setSessionTitleRefreshConfig` 写入 runtime 属性。
+  旧 CLI 不认识该方法时 host 按 method-not-found **降级忽略**。
+- **PULL（冷恢复 / 新会话）**：`session/requestRuntimePreferences` 的返回新增
+  `sessionTitleRefresh`（Host 从设置文件读），经 `resolveSessionStartupPreferences`
+  注入 `runtimeConfig.sessionTitleRefresh` 作为初始档；旧 Host 缺席时回退进程级 PUSH 缓存，
+  再退到默认档。跨窗口由 `APP_RUNTIME_PREFERENCES_CHANGED_BROADCAST_CHANNEL` 广播重放。
+- **热更新语义**：写属性即生效，但**只影响后续轮次完成时的网格判断**——
+  改参数/重启/恢复旧会话都不补跑历史（与上节规则同一约束）。
+
 ## 手动生成（重命名对话框）
 
 - 重命名对话框新增「生成新标题」按钮：调用一次生成（不入库、不发事件），

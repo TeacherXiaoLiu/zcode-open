@@ -595,6 +595,14 @@ export type ZCodeAgentServiceEvent =
 export interface ZCodeAgentAppRuntimePreferences {
   askUserQuestionAutoResolutionEnabled: boolean;
   modelIoFullRetentionEnabled?: boolean;
+  /**
+   * 本地定制：会话标题自动刷新参数。缺失 = 不改动 agent 端当前值（区别于显式传默认档）。
+   */
+  sessionTitleRefresh?: {
+    enabled: boolean;
+    firstRound: number;
+    interval: number;
+  };
 }
 
 export interface ZCodeAgentLocalRuntimeChildProcesses {

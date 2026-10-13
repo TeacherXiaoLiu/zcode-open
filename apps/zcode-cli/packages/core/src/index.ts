@@ -166,6 +166,7 @@ export type {
   StartSavedWorkflowRunResult,
   AmendWorkflowRunSettingsInput,
   AmendWorkflowRunSettingsResult,
+  SessionTitleRefreshConfig,
   TurnResult,
   WorkspaceGenerateTextInput,
   WorkspaceGenerateTextResult,

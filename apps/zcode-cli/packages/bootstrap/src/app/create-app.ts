@@ -1108,6 +1108,8 @@ export async function createZCodeApp(options: ZCodeAppOptions): Promise<ZCodeApp
         workspaceHookRuntimeSecurity?.reloadTrust() ?? Promise.resolve(),
       setModelIoFullRetentionEnabled: (enabled) =>
         modelAdapter.setModelIoFullRetentionEnabled(enabled),
+      // 定制（本地分支）：标题刷新参数热更新（Host 推送到所有 resident session）。
+      setSessionTitleRefreshConfig: (config) => getRuntime().setSessionTitleRefreshConfig(config),
       readToolResultArtifact: (uri) =>
         artifactStore.readToolResultArtifact({ uri, trace: traceContext }),
       // wire/staging 全程是 decoded chunk；只有完整 checksum commit 后才在
