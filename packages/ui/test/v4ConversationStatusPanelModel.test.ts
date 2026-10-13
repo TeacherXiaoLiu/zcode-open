@@ -562,7 +562,9 @@ describe("buildConversationStatusPanelModel", () => {
     ]);
   });
 
-  it("does not show git tools for a clean repository without worktree line changes", () => {
+  it("keeps git tools for a clean repository (customized always-on git card)", () => {
+    // 定制（本地分支）：Git 卡常驻，干净仓库（无行级变更）也创建 model 并撑起面板。
+    // 上游语义是"clean repo 不挂状态卡"，本用例随定制同步调整。
     const model = buildConversationStatusPanelModel({
       gitSummary: gitSummary({ isDirty: false, ahead: 0 }),
       gitDirtyFileCount: 0,
@@ -572,8 +574,13 @@ describe("buildConversationStatusPanelModel", () => {
       backgroundWorks: [],
     });
 
-    expect(model.hasContent).toBe(false);
-    expect(model.git).toBeNull();
+    expect(model.hasContent).toBe(true);
+    expect(model.git).toMatchObject({
+      added: 0,
+      removed: 0,
+      dirtyFileCount: 0,
+      isClean: true,
+    });
   });
 
   it("lists only terminal ExitPlanMode rows with markdown, newest first", () => {

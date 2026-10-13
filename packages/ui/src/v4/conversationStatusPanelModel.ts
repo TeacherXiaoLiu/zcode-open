@@ -155,11 +155,9 @@ function buildGitModel({
   }
   const added = gitWorktreeChangeSummary?.added ?? 0;
   const removed = gitWorktreeChangeSummary?.removed ?? 0;
-  // v4 之前只要是 Git repository 就创建 Git model，导致 clean repo
-  // 也挂出右上角状态卡；旧 ChatView 只在 worktree 有行级变化时展示 Git Tools。
-  if (added + removed <= 0) {
-    return null;
-  }
+  // 定制（本地分支）：Git 卡常驻——只要工作区在 Git 仓库内就创建 model（含干净态），
+  // 让分支/变更状态随时可见。上游行为是无行级变更时不显示此卡（clean repo 不挂状态卡，
+  // 与旧 ChatView 只在有行级变化时展示 Git Tools 一致）；其余区块维持按需显示。
   const isClean =
     !gitSummary.isDirty &&
     gitDirtyFileCount === 0 &&

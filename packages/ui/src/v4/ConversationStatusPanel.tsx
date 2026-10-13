@@ -23,6 +23,7 @@ import {
   CircleIcon,
   EllipsisIcon,
   FileDiffIcon,
+  GitBranchIcon,
   GoalIcon,
   ListChecksIcon,
   Maximize2Icon,
@@ -1844,6 +1845,15 @@ function StatusSummaryRow({
       <span className="shrink-0 text-[var(--color-foreground-subtle)]">
         {endedWorkflowRunCount}
       </span>
+    </StatusSummaryMetric>
+  ) : model.git?.branchName ? (
+    // 定制（本地分支）：Git 卡常驻后（干净仓库也保留 model.git），窄窗口胶囊在
+    // 「仓库干净且无其他活动」时各分支全 null，只剩 2px 空壳线（与上一分支同款失效
+    // 形状）。这里补最低优先级的兜底：显示当前分支名，点开即展开面板。
+    <StatusSummaryMetric
+      icon={<GitBranchIcon className="size-4 text-[var(--color-foreground-subtle)]" />}
+    >
+      <span className="min-w-0 truncate">{model.git.branchName}</span>
     </StatusSummaryMetric>
   ) : null;
 
