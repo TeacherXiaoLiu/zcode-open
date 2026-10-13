@@ -1076,7 +1076,8 @@ const enUS: Record<string, string> = {
   "browser.permission.deviceBluetooth": "Bluetooth devices",
   "browser.permission.unknownCapability": "an unknown capability",
   "browser.permission.screenShareTitle": "{origin} wants to share your screen",
-  "browser.permission.screenShareDescription": "Choose the screen or window to share. This choice applies only to this session.",
+  "browser.permission.screenShareDescription":
+    "Choose the screen or window to share. This choice applies only to this session.",
   "browser.permission.deviceTitle": "{origin} wants to connect a device",
   "browser.permission.connect": "Connect",
   "browser.permission.screenGroup.screen": "Entire Screen",
@@ -2638,16 +2639,145 @@ const enUS: Record<string, string> = {
   "settings.sessionTitleRefresh.intervalDescription":
     "Re-summarize the title every this many user rounds thereafter (1-100).",
   "settings.sessionTitleRefresh.currentRule": "Current rule",
-  "settings.sessionTitleRefresh.rule": "Refresh every {interval} rounds, starting from round {firstRound}",
+  "settings.sessionTitleRefresh.rule":
+    "Refresh every {interval} rounds, starting from round {firstRound}",
   "settings.sessionTitleRefresh.ruleDisabled": "Disabled (initial title generation only)",
   "settings.sessionTitleRefresh.saveError": "Could not update session title refresh settings",
-  "settings.desktopPet": "Desktop pet",
+  "settings.desktopPet.sectionTitle": "Pets",
+  "settings.desktopPet": "Enable desktop pet",
   "settings.desktopPet.description":
-    "A floating pet on your desktop that mirrors session states in real time: running while a session works, alerting you to unread failures or finished results. Drag to move; right-click to switch pets or hide.",
+    "Show an always-on-top pet that runs with your tasks and alerts you to unread results. Turn it off to hide the pet.",
   "settings.desktopPet.activePet": "Active pet",
   "settings.desktopPet.activePetDescription":
     "Read from ~/.zcode/v2/pets; interoperable with Mikiko / Codex pet packs — copying the folder is enough.",
+  "settings.desktopPet.scale": "Size",
+  "settings.desktopPet.scaleDescription":
+    "Adjust the on-screen size of the desktop pet (50%–200%). Preview while dragging; applied on release.",
   "settings.desktopPet.saveError": "Could not update desktop pet settings",
+  "settings.desktopPet.manage": "Manage pets",
+  "settings.desktopPet.managementTitle": "Pet management",
+  "settings.desktopPet.installed": "Installed",
+  "settings.desktopPet.market": "Pet marketplace",
+  "settings.desktopPet.import": "Import pets",
+  "settings.desktopPet.use": "Use",
+  "settings.desktopPet.inUse": "In use",
+  "settings.desktopPet.install": "Install",
+  "settings.desktopPet.reinstall": "Installed · Reinstall",
+  "settings.desktopPet.delete": "Delete",
+  "settings.desktopPet.deleteNamed": "Delete {name}",
+  "settings.desktopPet.deleteTitle": "Delete pet",
+  "settings.desktopPet.deleteDescription":
+    "Delete “{name}”? This only removes the local installed copy, not the import source.",
+  "settings.desktopPet.activeDeleteHint": "Switch to another pet before deleting.",
+  "settings.desktopPet.activeMissing":
+    "The active pet is unavailable. Select another in pet management.",
+  "settings.desktopPet.installedEmpty":
+    "No pets installed. Install from the marketplace or import local pets.",
+  "settings.desktopPet.refresh": "Refresh",
+  "settings.desktopPet.retry": "Retry",
+  "settings.desktopPet.cancel": "Cancel",
+  "settings.desktopPet.saving": "Saving pet settings…",
+  "settings.desktopPet.settingsLoading": "Loading local pet settings…",
+  "settings.desktopPet.installedLoading": "Loading installed pets…",
+  "settings.desktopPet.marketLoading": "Loading pet marketplace…",
+  "settings.desktopPet.preview.loading": "Loading preview…",
+  "settings.desktopPet.preview.error": "Preview unavailable",
+  "settings.desktopPet.source.bundled": "Bundled",
+  "settings.desktopPet.source.market": "Marketplace",
+  "settings.desktopPet.source.codex": "Codex",
+  "settings.desktopPet.source.zcode": "ZCode",
+  "settings.desktopPet.source.mikiko": "Mikiko",
+  "settings.desktopPet.source.local": "Local import",
+  "settings.desktopPet.license": "License",
+  "settings.desktopPet.license.unknownText": "Unknown license",
+  "settings.desktopPet.license.allowed":
+    "The license permits commercial use; attribution and other license requirements still apply.",
+  "settings.desktopPet.license.nonCommercial": "Non-commercial use only. Do not use commercially.",
+  "settings.desktopPet.license.unknown":
+    "Commercial-use permission is unknown, not granted. Confirm with the rights holder first.",
+  "settings.desktopPet.license.badge.allowed": "Commercial use permitted",
+  "settings.desktopPet.license.badge.nonCommercial": "Non-commercial license",
+  "settings.desktopPet.license.badge.unknown": "Commercial use unknown",
+  "settings.desktopPet.license.attribution": "Attribution",
+  "settings.desktopPet.market.search": "Search",
+  "settings.desktopPet.market.searchPlaceholder": "Search name, tags, or author…",
+  "settings.desktopPet.market.category": "Marketplace category",
+  "settings.desktopPet.market.allCategories": "All categories",
+  "settings.desktopPet.market.empty":
+    "No matching pets. Adjust your search or category and try again.",
+  "settings.desktopPet.market.page": "Page {page} · {total} pets",
+  "settings.desktopPet.market.previous": "Previous",
+  "settings.desktopPet.market.next": "Next",
+  "settings.desktopPet.market.confirmTitle": "Confirm installation and license",
+  "settings.desktopPet.market.licenseHint":
+    "This is the specific pet asset license, not the marketplace repository's code license.",
+  "settings.desktopPet.market.acceptLicense":
+    "I have read this pet's license and understand its usage restrictions.",
+  "settings.desktopPet.market.confirmInstall": "Confirm installation",
+  "settings.desktopPet.import.title": "Import pets",
+  "settings.desktopPet.import.description":
+    "Scan and select pets before confirming installation. Scanning or cancelling installs nothing; each duplicate needs separate replacement approval.",
+  "settings.desktopPet.import.source": "Import source",
+  "settings.desktopPet.import.source.codex": "Import from Codex",
+  "settings.desktopPet.import.source.mikiko": "Import from Mikiko",
+  "settings.desktopPet.import.source.zcode": "Import from another ZCode",
+  "settings.desktopPet.import.source.directory": "Choose local directory",
+  "settings.desktopPet.import.source.archive": "Choose ZIP file",
+  "settings.desktopPet.import.sourceHint":
+    "Select a single pet directory or a pets root. If a shortcut source cannot be scanned, choose a local directory instead. Files are selected and read locally.",
+  "settings.desktopPet.import.scan": "Scan and preview",
+  "settings.desktopPet.import.warnings": "Scan notices (source details)",
+  "settings.desktopPet.import.empty":
+    "No importable pets found. Check the source or choose another directory.",
+  "settings.desktopPet.import.duplicate":
+    "This ID is already installed and will not be replaced by default.",
+  "settings.desktopPet.import.existing": "Existing pet: {name} · v{version}",
+  "settings.desktopPet.import.replaceNamed":
+    "Explicitly allow replacing the existing “{name}” installation",
+  "settings.desktopPet.import.willReplace": "Will replace existing installation",
+  "settings.desktopPet.import.chooseAnother": "Choose another source",
+  "settings.desktopPet.import.reviewSelection": "Review selected pets",
+  "settings.desktopPet.import.confirmSummary": "Confirm installation of {count} selected pets",
+  "settings.desktopPet.import.confirmHint":
+    "Only the selected pets above will be installed. Existing pets will not be replaced without explicit approval. Rescan if installation fails.",
+  "settings.desktopPet.import.back": "Back to selection",
+  "settings.desktopPet.import.confirm": "Confirm import",
+  "settings.desktopPet.phase.scanning": "Scanning pet source…",
+  "settings.desktopPet.phase.downloading": "Downloading pet…",
+  "settings.desktopPet.phase.verifying": "Verifying pet assets…",
+  "settings.desktopPet.phase.staging": "Staging pets…",
+  "settings.desktopPet.phase.installing": "Installing pets…",
+  "settings.desktopPet.phase.deleting": "Deleting pet…",
+  "settings.desktopPet.phase.completed": "Operation complete",
+  "settings.desktopPet.operation.saved": "Pet settings saved.",
+  "settings.desktopPet.operation.completed": "Pet operation completed.",
+  "settings.desktopPet.operation.cancelled":
+    "Operation cancelled. Incomplete installations are not retained.",
+  "settings.desktopPet.operation.cancelling": "Cancelling operation…",
+  "settings.desktopPet.operation.cancel": "Cancel operation",
+  "settings.desktopPet.operation.progress": "Pet operation progress",
+  "settings.desktopPet.error.details": "View details",
+  "settings.desktopPet.error.settings": "Could not read local pet settings. Try again.",
+  "settings.desktopPet.error.installed": "Could not load installed pets. Try again.",
+  "settings.desktopPet.error.market":
+    "Could not load the pet marketplace. Check your connection and try again.",
+  "settings.desktopPet.error.save": "Could not save the pet toggle. Try again.",
+  "settings.desktopPet.error.activate": "Could not switch pets. Refresh the list and try again.",
+  "settings.desktopPet.error.activeDelete":
+    "The active pet cannot be deleted. Switch to another pet first.",
+  "settings.desktopPet.error.delete": "Could not delete the pet. Refresh the list and try again.",
+  "settings.desktopPet.error.install":
+    "Installation failed. Existing installations are unchanged. Check the details and try again.",
+  "settings.desktopPet.error.scan":
+    "Could not scan the import source. Check it or choose a local directory.",
+  "settings.desktopPet.error.import":
+    "Import failed. Existing installations are unchanged. Rescan and try again.",
+  "settings.desktopPet.error.cancel": "Could not cancel the operation. Check the details.",
+  "settings.desktopPet.error.reviewExpired":
+    "The import review has expired. Scan the source again.",
+  "settings.desktopPet.error.selection": "Select importable pets from this review.",
+  "settings.desktopPet.error.replaceRequired":
+    "Selected duplicates need explicit replacement approval. Approve each one or deselect it.",
   "settings.dataBaseDir": "Data storage path",
   "settings.dataBaseDirDescription":
     "Root directory for app data (defaults to user home directory). Existing data will be copied to the new location. The .zcode/v2 suffix cannot be changed.",

@@ -117,7 +117,7 @@ export function SettingsRow({
   description?: ReactNode;
   control: ReactNode;
   detail?: ReactNode;
-  controlLayout?: "default" | "wide";
+  controlLayout?: "default" | "wide" | "compact";
 }) {
   return (
     <div className="border-t border-border px-4 py-3 first:border-t-0">
@@ -126,7 +126,10 @@ export function SettingsRow({
           "grid items-center gap-4",
           controlLayout === "wide"
             ? "grid-cols-1 sm:grid-cols-[minmax(0,1fr)_280px]"
-            : "grid-cols-[minmax(0,1fr)_192px]",
+            : controlLayout === "compact"
+              ? // 宠物开关/管理按钮无需占据固定 192/280px 控制列；窄设置内容列应由实际控件宽度决定。
+                "grid-cols-[minmax(0,1fr)_auto]"
+              : "grid-cols-[minmax(0,1fr)_192px]",
         )}
       >
         <div className="min-w-0">
@@ -206,4 +209,43 @@ export function SettingsRangeControl({
 
 export function getThemeOptionLabel(value: BundledTheme): string {
   return CODE_PREVIEW_THEME_OPTIONS.find((option) => option.value === value)?.label ?? value;
+}
+
+/**
+ * 滑条拖动中只更新本地草稿，释放（pointerup/keyup/blur）才提交——
+ * 避免拖动过程每步触发一次设置写盘 + 跨进程推送（标题刷新与桌宠缩放共用）。
+ */
+export function SettingsCommitOnReleaseRange({
+  value,
+  min,
+  max,
+  step = 1,
+  onChange,
+  onCommit,
+  valueLabel,
+  ariaLabel,
+}: {
+  value: number;
+  min: number;
+  max: number;
+  step?: number;
+  onChange: (value: number) => void;
+  onCommit: () => void;
+  valueLabel: ReactNode;
+  ariaLabel: string;
+}) {
+  return (
+    // display:contents 透传布局，仅借冒泡捕获滑条释放事件。
+    <span className="contents" onPointerUp={onCommit} onKeyUp={onCommit} onBlur={onCommit}>
+      <SettingsRangeControl
+        value={value}
+        min={min}
+        max={max}
+        step={step}
+        onChange={onChange}
+        valueLabel={valueLabel}
+        ariaLabel={ariaLabel}
+      />
+    </span>
+  );
 }

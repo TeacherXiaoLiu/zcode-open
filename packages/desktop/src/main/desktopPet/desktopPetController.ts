@@ -1,16 +1,19 @@
 import { Menu, screen } from "electron";
-import type { BrowserWindow, MenuItemConstructorOptions, Point, Rectangle } from "electron";
+import type { BrowserWindow, MenuItemConstructorOptions, Rectangle } from "electron";
 import {
   DESKTOP_PET_ATLAS,
+  DESKTOP_PET_SCALE_DEFAULT,
   DESKTOP_PET_STATE_PRIORITY,
-  DESKTOP_PET_WINDOW_SCALE,
   PlatformChannels,
   desktopMenuMessageIds,
   getDesktopMenuMessage,
+  normalizeDesktopPetScale,
   type AppSettings,
   type DesktopPetActivePayload,
-  type DesktopPetDragDirection,
+  type DesktopPetActivity,
+  type DesktopPetBubblePayload,
   type DesktopPetManifest,
+  type DesktopPetSessionActivity,
   type DesktopPetState,
   type Locale,
 } from "@zcode/shared";
@@ -20,25 +23,33 @@ import {
   listInstalledDesktopPets,
   readDesktopPetManifest,
 } from "./desktopPetCatalog.js";
+import { createDesktopPetBubble, type DesktopPetBubbleHandle } from "./desktopPetBubble.js";
+import { createDesktopPetDrag } from "./desktopPetDrag.js";
+import {
+  resolveDesktopPetBounds,
+  resolveResizedDesktopPetBounds,
+} from "./desktopPetPlacement.js";
 import { DESKTOP_PET_PACK_SCHEME } from "./desktopPetProtocol.js";
-import type { DesktopPetWindowHandle } from "./desktopPetWindow.js";
+import type {
+  DesktopPetBubbleWindowHandle,
+  DesktopPetWindowHandle,
+} from "./desktopPetWindow.js";
 
 /**
  * 桌面宠物控制器（本地定制，specs/desktop/desktop-pet.md）。
  *
  * 职责边界：
  *   - 窗口生命周期：设置开关/宠物切换时创建与销毁；跟随设置持久化位置。
- *   - 状态汇总：renderer 是会话聚合状态的唯一生产者（reportState），这里只做
- *     多窗口按优先级取最高（不重新解释会话语义），再转发给宠物窗口。
+ *   - 活动汇总：renderer 是会话活动（状态 + 标题）的唯一生产者（reportActivity），这里只做
+ *     多窗口按优先级取最高（不重新解释会话语义），再转发给宠物窗口与汇报气泡。
  *   - 拖动：pointerdown 后 main 以 16ms 跟随光标移动窗口并推送方向动画；
  *     drag-end 返回累计位移供渲染器区分点击/拖拽，并持久化位置。
  *   - 右键菜单：切换宠物 / 隐藏桌宠 / 打开 ZCode。
  */
 
-const DRAG_TICK_MS = 16;
 const DRAG_CLICK_THRESHOLD_PX = 6;
-const WINDOW_EDGE_MARGIN_PX = 24;
-const WINDOW_BOTTOM_OFFSET_PX = 96;
+/** 气泡会话列表条数上限（渲染预算与高度由 desktopPetBubble 按条数计算）。 */
+const MAX_BUBBLE_SESSIONS = 3;
 
 export interface DesktopPetLogger {
   info(message: string, meta?: Record<string, unknown>): void;
@@ -51,10 +62,12 @@ export interface DesktopPetControllerDeps {
   /** 随包分发的内置宠物目录（首次启用时复制到用户目录）。 */
   bundledPetsDir: string;
   createWindow: (initialBounds: Rectangle) => DesktopPetWindowHandle;
-  /** 写回 desktopPetPosition（拖动结束后）。 */
+  /** 会话汇报气泡窗口工厂（三期）；缺省则不创建气泡。 */
+  createBubbleWindow?: (initialBounds: Rectangle) => DesktopPetBubbleWindowHandle;
+  /** 写回 desktopPetPosition（拖动结束 / 缩放缓动后）。 */
   persistPosition: (position: { x: number; y: number }) => void;
   /** 写回 desktopPetId（右键菜单切换宠物）。 */
-  persistActivePetId: (petId: string) => void;
+  persistActivePetId: (petId: string) => Promise<void>;
   /** 右键"隐藏桌宠"（写 desktopPetEnabled=false，走设置链路回扫）。 */
   setEnabled: (enabled: boolean) => void;
   /** 双击宠物/菜单"打开 ZCode"：激活主窗口。 */
@@ -67,12 +80,16 @@ export interface DesktopPetController {
   applySettings(patch: Partial<AppSettings>): void;
   /** pet 窗口拉取当前宠物（getActive IPC 的应答）。 */
   getActivePayload(): DesktopPetActivePayload | undefined;
-  /** renderer 上报会话聚合状态（多窗口）。 */
-  reportState(state: DesktopPetState, reporterId: number): void;
+  /** renderer 上报会话活动（多窗口）。 */
+  reportActivity(activity: DesktopPetActivity, reporterId: number): void;
   /** renderer 销毁时清理上报（避免陈旧状态延续）。 */
   releaseReporter(reporterId: number): void;
+  /** 气泡窗口拉取当前汇总活动（getActivity IPC 的应答）。 */
+  getBubblePayload(): DesktopPetBubblePayload;
+  /** 当前活动宠物 ID（删除安全检查用）。 */
+  getActivePetId(): string | undefined;
   /** 切换当前宠物（设置页/右键菜单）：持久化 + 热重建窗口。 */
-  switchActivePet(petId: string): void;
+  switchActivePet(petId: string): Promise<void>;
   /** 双击宠物/菜单"打开 ZCode"（IPC 入口转发）。 */
   openMainWindow(): void;
   startDrag(): void;
@@ -80,15 +97,9 @@ export interface DesktopPetController {
   showContextMenu(): void;
   /** 接入主窗集合排除逻辑（close-to-tray/单实例聚焦不得把桌宠当主窗）。 */
   ownsWindow(candidate: BrowserWindow): boolean;
+  ownsWebContents(id: number): boolean;
+  ownsBubbleWebContents(id: number): boolean;
   dispose(): void;
-}
-
-interface DragSession {
-  interval?: ReturnType<typeof setInterval>;
-  cursorStart: Point;
-  windowStart: { x: number; y: number };
-  movedPx: number;
-  direction?: DesktopPetDragDirection;
 }
 
 export function createDesktopPetController(deps: DesktopPetControllerDeps): DesktopPetController {
@@ -96,64 +107,103 @@ export function createDesktopPetController(deps: DesktopPetControllerDeps): Desk
   let enabled = false;
   let activePetId: string | undefined;
   let savedPosition: { x: number; y: number } | undefined;
+  let scale = DESKTOP_PET_SCALE_DEFAULT;
   let window: DesktopPetWindowHandle | null = null;
-  let dragSession: DragSession | null = null;
-  const stateByReporter = new Map<number, DesktopPetState>();
+  const stateByReporter = new Map<number, DesktopPetActivity>();
   let lastPushedState: DesktopPetState | undefined;
+  let lastBubbleKey: string | undefined;
+  const bubble: DesktopPetBubbleHandle | null = deps.createBubbleWindow
+    ? createDesktopPetBubble({
+        createWindow: deps.createBubbleWindow,
+        getWorkArea: (point) => screen.getDisplayNearestPoint(point).workArea,
+      })
+    : null;
+  const drag = createDesktopPetDrag({
+    getWindow: () => window,
+    getCursor: () => screen.getCursorScreenPoint(),
+    // 拖动中隐藏气泡：避免 16ms 跟随产生拖影；松手后按新位置恢复。
+    onStart: () => bubble?.hide(),
+  });
 
   function windowSize(): { width: number; height: number } {
     return {
-      width: Math.round(DESKTOP_PET_ATLAS[1].frameWidth * DESKTOP_PET_WINDOW_SCALE),
-      height: Math.round(DESKTOP_PET_ATLAS[1].frameHeight * DESKTOP_PET_WINDOW_SCALE),
+      width: Math.max(1, Math.round(DESKTOP_PET_ATLAS[1].frameWidth * scale)),
+      height: Math.max(1, Math.round(DESKTOP_PET_ATLAS[1].frameHeight * scale)),
     };
   }
 
-  function defaultBottomRight(width: number, height: number): { x: number; y: number } {
-    const { workArea } = screen.getPrimaryDisplay();
-    return {
-      x: workArea.x + workArea.width - width - WINDOW_EDGE_MARGIN_PX,
-      y: workArea.y + workArea.height - height - WINDOW_BOTTOM_OFFSET_PX,
-    };
+  function workAreaNearest(point: { x: number; y: number }): Rectangle {
+    return screen.getDisplayNearestPoint(point).workArea;
   }
 
   function resolveInitialBounds(): Rectangle {
-    const { width, height } = windowSize();
-    const candidate = savedPosition ?? defaultBottomRight(width, height);
-    // 保存的位置可能来自已拔除的显示器：夹到最近显示器的可见工作区内。
-    const { workArea } = screen.getDisplayNearestPoint(candidate);
+    const size = windowSize();
+    // 保存的位置可能来自已拔除的显示器：按候选点选最近显示器；无保存位置用主显示器。
+    const workArea = savedPosition
+      ? workAreaNearest(savedPosition)
+      : screen.getPrimaryDisplay().workArea;
+    return resolveDesktopPetBounds({ saved: savedPosition, size, workArea });
+  }
+
+  function effectiveActivity(): DesktopPetActivity {
+    const merged: DesktopPetSessionActivity[] = [];
+    const seen = new Set<string>();
+    let bestIndex = DESKTOP_PET_STATE_PRIORITY.length - 1;
+    for (const activity of stateByReporter.values()) {
+      for (const session of activity.sessions) {
+        const index = DESKTOP_PET_STATE_PRIORITY.indexOf(session.state);
+        if (index < 0) {
+          continue;
+        }
+        if (index < bestIndex) {
+          bestIndex = index;
+        }
+        // 多窗口上报合并：同 session 只保留先到的一条（renderer 侧已按优先级排序）。
+        if (seen.has(session.sessionId)) {
+          continue;
+        }
+        seen.add(session.sessionId);
+        merged.push(session);
+      }
+    }
+    // 稳定排序：renderer 已按 (优先级, 活动时间) 排好；这里只按优先级归并多窗口来源。
+    merged.sort(
+      (left, right) =>
+        DESKTOP_PET_STATE_PRIORITY.indexOf(left.state) -
+        DESKTOP_PET_STATE_PRIORITY.indexOf(right.state),
+    );
     return {
-      width,
-      height,
-      x: Math.round(
-        Math.min(Math.max(candidate.x, workArea.x), workArea.x + workArea.width - width),
-      ),
-      y: Math.round(
-        Math.min(Math.max(candidate.y, workArea.y), workArea.y + workArea.height - height),
-      ),
+      state: DESKTOP_PET_STATE_PRIORITY[bestIndex] ?? "idle",
+      sessions: merged.slice(0, MAX_BUBBLE_SESSIONS),
     };
   }
 
-  function effectiveState(): DesktopPetState {
-    let bestIndex = DESKTOP_PET_STATE_PRIORITY.length - 1;
-    for (const state of stateByReporter.values()) {
-      const index = DESKTOP_PET_STATE_PRIORITY.indexOf(state);
-      if (index >= 0 && index < bestIndex) {
-        bestIndex = index;
+  function pushActivity(force = false): void {
+    const next = effectiveActivity();
+    if (window && !window.isDestroyed()) {
+      if (force || next.state !== lastPushedState) {
+        lastPushedState = next.state;
+        window.send(PlatformChannels.DesktopPetState, next.state);
       }
     }
-    return DESKTOP_PET_STATE_PRIORITY[bestIndex] ?? "idle";
+    syncBubble(next, force);
   }
 
-  function pushState(force = false): void {
-    if (!window || window.isDestroyed()) {
+  function syncBubble(activity: DesktopPetActivity, force = false): void {
+    if (!bubble) {
       return;
     }
-    const next = effectiveState();
-    if (!force && next === lastPushedState) {
+    if (activity.state === "idle" || activity.sessions.length === 0) {
+      lastBubbleKey = undefined;
+      bubble.hide();
       return;
     }
-    lastPushedState = next;
-    window.send(PlatformChannels.DesktopPetState, next);
+    const key = JSON.stringify(activity.sessions);
+    if (!force && key === lastBubbleKey) {
+      return;
+    }
+    lastBubbleKey = key;
+    bubble.show(activity, deps.getLocale());
   }
 
   function resolveActivePet(): DesktopPetManifest | null {
@@ -177,17 +227,8 @@ export function createDesktopPetController(deps: DesktopPetControllerDeps): Desk
     return manifest;
   }
 
-  function stopDrag(): void {
-    if (dragSession) {
-      if (dragSession.interval) {
-        clearInterval(dragSession.interval);
-      }
-      dragSession = null;
-    }
-  }
-
   function destroyWindow(): void {
-    stopDrag();
+    drag.stop();
     if (window) {
       if (!window.isDestroyed()) {
         window.destroy();
@@ -195,6 +236,8 @@ export function createDesktopPetController(deps: DesktopPetControllerDeps): Desk
       window = null;
     }
     lastPushedState = undefined;
+    lastBubbleKey = undefined;
+    bubble?.destroy();
   }
 
   function ensureWindow(): void {
@@ -203,33 +246,50 @@ export function createDesktopPetController(deps: DesktopPetControllerDeps): Desk
     }
     const manifest = resolveActivePet();
     if (!manifest) {
-      deps.logger?.warn(
-        "[desktop-pet] no valid pet found in pets directory; window stays hidden",
-        { petsRootDir: deps.petsRootDir },
-      );
+      deps.logger?.warn("[desktop-pet] no valid pet found in pets directory; window stays hidden", {
+        petsRootDir: deps.petsRootDir,
+      });
       return;
     }
-    const created = deps.createWindow(resolveInitialBounds());
+    const bounds = resolveInitialBounds();
+    const created = deps.createWindow(bounds);
     window = created;
+    // 汇报气泡与宠物窗口同生命周期；挂靠在宠物旁，等首次活动驱动显示。
+    bubble?.ensure(bounds);
     created.onceReadyToShow(() => {
       if (disposed || window !== created || created.isDestroyed()) {
         return;
       }
       created.showInactive();
-      pushState(true);
+      pushActivity(true);
     });
     deps.logger?.info("[desktop-pet] window created", {
       petId: manifest.id,
       spriteVersionNumber: manifest.spriteVersionNumber,
+      scale,
     });
   }
 
-  function switchActivePet(petId: string): void {
-    if (petId === activePetId) {
+  /** 缩放缓动：窗口存在时按底部中心锚定换 bounds，并持久化新位置。 */
+  function resizeWindow(): void {
+    if (!window || window.isDestroyed()) {
       return;
     }
+    const bounds = window.getBounds();
+    const next = resolveResizedDesktopPetBounds(bounds, windowSize(), workAreaNearest(bounds));
+    window.setBounds(next);
+    savedPosition = { x: next.x, y: next.y };
+    deps.persistPosition(savedPosition);
+    bubble?.reposition(next);
+  }
+
+  async function switchActivePet(petId: string): Promise<void> {
+    if (!readDesktopPetManifest(petId, deps.petsRootDir))
+      throw new Error("INVALID_PET: 宠物未安装或清单无效");
+    if (petId === activePetId) return;
+    // 持久化成功后才切换，设置页不会在 IPC 返回时读到旧 ID。
+    await deps.persistActivePetId(petId);
     activePetId = petId;
-    deps.persistActivePetId(petId);
     // 切换频率低：重建窗口换内容最简单可靠（不维护第二条热切换路径）。
     destroyWindow();
     ensureWindow();
@@ -241,6 +301,12 @@ export function createDesktopPetController(deps: DesktopPetControllerDeps): Desk
     }
     if (patch.desktopPetPosition) {
       savedPosition = patch.desktopPetPosition;
+    }
+    let scaleChanged = false;
+    if (patch.desktopPetScale !== undefined) {
+      const next = normalizeDesktopPetScale(patch.desktopPetScale);
+      scaleChanged = next !== scale;
+      scale = next;
     }
     let petIdChanged = false;
     if (patch.desktopPetId !== undefined) {
@@ -264,61 +330,28 @@ export function createDesktopPetController(deps: DesktopPetControllerDeps): Desk
       destroyWindow();
     }
     ensureWindow();
-  }
-
-  function tickDrag(session: DragSession): void {
-    if (!window || window.isDestroyed()) {
-      stopDrag();
-      return;
-    }
-    const cursor = screen.getCursorScreenPoint();
-    const dx = cursor.x - session.cursorStart.x;
-    const dy = cursor.y - session.cursorStart.y;
-    if (dx === 0 && dy === 0) {
-      return;
-    }
-    session.movedPx = Math.hypot(dx, dy);
-    window.setPosition(session.windowStart.x + dx, session.windowStart.y + dy);
-    const direction: DesktopPetDragDirection =
-      Math.abs(dx) >= Math.abs(dy)
-        ? dx >= 0
-          ? "running-right"
-          : "running-left"
-        : "running";
-    if (direction !== session.direction) {
-      session.direction = direction;
-      window.send(PlatformChannels.DesktopPetDragDirection, direction);
+    // 窗口已存在时 ensureWindow 不会重建，缩放需要显式套用；新建窗口自带新尺寸。
+    if (scaleChanged && window && !window.isDestroyed()) {
+      resizeWindow();
     }
   }
 
   function startDrag(): void {
-    if (!window || window.isDestroyed() || dragSession) {
-      return;
-    }
-    const bounds = window.getBounds();
-    const session: DragSession = {
-      cursorStart: screen.getCursorScreenPoint(),
-      windowStart: { x: bounds.x, y: bounds.y },
-      movedPx: 0,
-    };
-    // 先入档再挂 tick：tick 闭包引用同一 session，避免自引用初始化顺序问题。
-    dragSession = session;
-    session.interval = setInterval(() => tickDrag(session), DRAG_TICK_MS);
+    drag.start();
   }
 
   function endDrag(): { movedPx: number } {
-    const session = dragSession;
-    stopDrag();
-    const movedPx = session?.movedPx ?? 0;
-    if (
-      session &&
-      movedPx > DRAG_CLICK_THRESHOLD_PX &&
-      window &&
-      !window.isDestroyed()
-    ) {
+    const active = drag.isActive();
+    const { movedPx } = drag.end();
+    if (active && window && !window.isDestroyed()) {
       const bounds = window.getBounds();
-      savedPosition = { x: bounds.x, y: bounds.y };
-      deps.persistPosition(savedPosition);
+      if (movedPx > DRAG_CLICK_THRESHOLD_PX) {
+        savedPosition = { x: bounds.x, y: bounds.y };
+        deps.persistPosition(savedPosition);
+      }
+      // 先按最新 bounds 重挂，再让活动状态决定是否重新显示（拖动中气泡是隐藏的）。
+      bubble?.reposition(bounds);
+      syncBubble(effectiveActivity(), true);
     }
     return { movedPx };
   }
@@ -337,7 +370,11 @@ export function createDesktopPetController(deps: DesktopPetControllerDeps): Desk
           label: pet.displayName,
           type: "radio" as const,
           checked: pet.id === activePetId,
-          click: () => switchActivePet(pet.id),
+          click: () => {
+            void switchActivePet(pet.id).catch((error) =>
+              deps.logger?.warn("[desktop-pet] 切换宠物失败", { error: String(error) }),
+            );
+          },
         })),
       });
     }
@@ -366,36 +403,54 @@ export function createDesktopPetController(deps: DesktopPetControllerDeps): Desk
     return {
       pet: manifest,
       spritesheetUrl: `${DESKTOP_PET_PACK_SCHEME}://${manifest.id}/${DESKTOP_PET_SPRITESHEET_FILE}`,
-      state: effectiveState(),
+      state: effectiveActivity().state,
     };
   }
 
   return {
     applySettings,
     getActivePayload,
-    reportState(state, reporterId) {
+    reportActivity(activity, reporterId) {
       if (disposed) {
         return;
       }
       const previous = stateByReporter.get(reporterId);
-      if (previous === state) {
+      if (previous && JSON.stringify(previous.sessions) === JSON.stringify(activity.sessions)) {
         return;
       }
-      stateByReporter.set(reporterId, state);
-      pushState();
+      stateByReporter.set(reporterId, {
+        state: activity.state,
+        sessions: activity.sessions,
+      });
+      pushActivity();
     },
     releaseReporter(reporterId) {
       if (stateByReporter.delete(reporterId)) {
-        pushState();
+        pushActivity();
       }
     },
+    getBubblePayload() {
+      return { activity: effectiveActivity(), locale: deps.getLocale() };
+    },
+    getActivePetId: () => activePetId,
     switchActivePet,
     openMainWindow: () => deps.openMainWindow(),
     startDrag,
     endDrag,
     showContextMenu,
     ownsWindow(candidate) {
-      return Boolean(window && !window.isDestroyed() && window.ownsWindow(candidate));
+      // 宠物窗口与汇报气泡都从属于桌宠功能：主窗集合（close-to-tray/单实例聚焦/
+      // last-window 判断）都必须排除它们。
+      return Boolean(
+        (window && !window.isDestroyed() && window.ownsWindow(candidate)) ||
+        bubble?.ownsWindow(candidate),
+      );
+    },
+    ownsWebContents(id) {
+      return Boolean(window && !window.isDestroyed() && window.ownsWebContents(id));
+    },
+    ownsBubbleWebContents(id) {
+      return Boolean(bubble?.ownsWebContents(id));
     },
     dispose() {
       disposed = true;

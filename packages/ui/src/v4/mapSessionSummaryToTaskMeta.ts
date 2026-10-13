@@ -95,6 +95,9 @@ export function mapSessionSummaryToTaskMeta(
       phase: summary.phase,
       lastActivityAt: summary.lastActivityAt,
       hasBackgroundWork: summary.hasBackgroundWork,
+      ...(summary.lastAssistantPreview
+        ? { assistantPreview: summary.lastAssistantPreview }
+        : {}),
       ...(summary.pendingInteractionSummary
         ? { pendingInteractions: summary.pendingInteractionSummary }
         : {}),

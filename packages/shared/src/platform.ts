@@ -36,7 +36,14 @@ import type {
   PrepareCuaHelperPermissionDragResult,
 } from "./cuaAccessibilitySettings.js";
 import type { BrowserViewportSize } from "./browser-use/command-metadata.js";
-import type { DesktopPetInstalledInfo, DesktopPetState } from "./desktopPet.js";
+import type {
+  DesktopPetImportReview,
+  DesktopPetImportSource,
+  DesktopPetInstalledInfo,
+  DesktopPetMarketPage,
+  DesktopPetOperationProgress,
+  DesktopPetActivity,
+} from "./desktopPet.js";
 import type {
   PostUpdateReleaseNotesPayload,
   UpdateCheckResultPayload,
@@ -61,10 +68,39 @@ export interface TaskNotificationPayload {
  * 仅 Desktop 实现：状态上报（多窗口由 main 汇总）与设置页的宠物列表/切换。
  */
 export interface DesktopPetPlatformPort {
-  /** 上报本窗口的会话聚合状态（宠物动画输入；不改动会话语义）。 */
-  reportState(state: DesktopPetState): void;
-  /** 列出本地宠物目录（pets 根下通过校验的宠物）。 */
+  /** 上报本窗口的会话活动（状态 + 最相关会话标题；宠物动画与汇报气泡共用输入）。 */
+  reportActivity(activity: DesktopPetActivity): void;
+  /** 列出本地宠物目录（pets 根下通过校验的宠物，含许可证来源信息）。 */
   listInstalled(): Promise<DesktopPetInstalledInfo[]>;
+  /** 查询经 main 校验的市场元数据；游标由 main 生成和校验。 */
+  listMarket(params?: {
+    query?: string;
+    category?: string;
+    cursor?: string;
+    limit?: number;
+    refresh?: boolean;
+  }): Promise<DesktopPetMarketPage>;
+  /** 由 main 打开原生来源选择器并扫描，返回短期 review token，不向 renderer 暴露路径。 */
+  prepareImport(source: DesktopPetImportSource): Promise<DesktopPetImportReview | null>;
+  /** 安装已预检的本地候选；覆盖 id 必须显式列入 replacePetIds；operationId 由 UI 生成。 */
+  installImport(params: {
+    operationId: string;
+    reviewId: string;
+    petIds: string[];
+    replacePetIds?: string[];
+  }): Promise<void>;
+  /** 按宠物 id 从固定市场来源下载、校验并安装；不接受 renderer 提供的 URL。 */
+  installMarketPet(params: {
+    operationId: string;
+    petId: string;
+    replaceExisting?: boolean;
+  }): Promise<void>;
+  /** 删除已安装宠物；当前活动宠物由 main 拒绝删除。 */
+  deleteInstalled(params: { operationId: string; petId: string }): Promise<void>;
+  /** 显式取消尚未完成的安装操作。 */
+  cancelOperation(operationId: string): void;
+  /** 订阅当前窗口发起操作的进度；返回 unsubscribe。 */
+  onOperationProgress(callback: (progress: DesktopPetOperationProgress) => void): () => void;
   /** 切换当前宠物（main 持久化 desktopPetId 并热重建宠物窗口）。 */
   setActive(petId: string): Promise<void>;
 }

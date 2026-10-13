@@ -1,10 +1,21 @@
-import { cpSync, existsSync, lstatSync, mkdirSync, readdirSync, readFileSync } from "node:fs";
+import {
+  cpSync,
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  writeFileSync,
+} from "node:fs";
 import { join } from "node:path";
 import { getAppConfigDir } from "@zcode/services/node";
 import {
   DESKTOP_PET_ATLAS,
   type DesktopPetInstalledInfo,
+  type DesktopPetLicenseInfo,
   type DesktopPetManifest,
+  type DesktopPetProvenance,
+  type DesktopPetSourceKind,
 } from "@zcode/shared";
 
 /**
@@ -14,10 +25,69 @@ import {
  */
 
 /** 宠物 id 形状（与目录名共用；市场 slug 同样满足）。 */
-export const DESKTOP_PET_ID_PATTERN = /^[\w.-]+$/;
+export const DESKTOP_PET_ID_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$/;
 export const DESKTOP_PET_MANIFEST_FILE = "pet.json";
 export const DESKTOP_PET_SPRITESHEET_FILE = "spritesheet.webp";
+export const DESKTOP_PET_PROVENANCE_FILE = ".zcode-provenance.json";
 const MAX_MANIFEST_FILE_BYTES = 64 * 1024;
+
+const UNKNOWN_LICENSE: DesktopPetLicenseInfo = {
+  text: "Unknown license",
+  commercialUse: "unknown",
+};
+
+const DESKTOP_PET_SOURCES: readonly DesktopPetSourceKind[] = [
+  "bundled",
+  "market",
+  "codex",
+  "zcode",
+  "mikiko",
+  "local",
+];
+
+function readPetProvenance(petDir: string): DesktopPetProvenance | undefined {
+  const path = join(petDir, DESKTOP_PET_PROVENANCE_FILE);
+  if (!isPlainFile(path)) return undefined;
+  try {
+    const value: unknown = JSON.parse(readFileSync(path, "utf8"));
+    if (!value || typeof value !== "object") return undefined;
+    const record = value as Record<string, unknown>;
+    const license = record.license as Record<string, unknown> | undefined;
+    if (
+      typeof record.source !== "string" ||
+      !DESKTOP_PET_SOURCES.includes(record.source as DesktopPetSourceKind) ||
+      typeof record.importedAt !== "number" ||
+      !license ||
+      typeof license.text !== "string" ||
+      (license.commercialUse !== "allowed" &&
+        license.commercialUse !== "nonCommercial" &&
+        license.commercialUse !== "unknown")
+    ) {
+      return undefined;
+    }
+    return {
+      source: record.source as DesktopPetSourceKind,
+      importedAt: record.importedAt,
+      license: {
+        text: license.text,
+        commercialUse: license.commercialUse,
+        ...(typeof license.url === "string" ? { url: license.url } : {}),
+        ...(typeof license.attribution === "string" ? { attribution: license.attribution } : {}),
+      },
+      ...(typeof record.author === "string" ? { author: record.author } : {}),
+      ...(typeof record.authorUrl === "string" ? { authorUrl: record.authorUrl } : {}),
+      ...(typeof record.sourceUrl === "string" ? { sourceUrl: record.sourceUrl } : {}),
+      ...(typeof record.sourceRef === "string" ? { sourceRef: record.sourceRef } : {}),
+      ...(typeof record.assetSha256 === "string" ? { assetSha256: record.assetSha256 } : {}),
+    };
+  } catch {
+    return undefined;
+  }
+}
+
+export function writePetProvenance(petDir: string, provenance: DesktopPetProvenance): void {
+  writeFileSync(join(petDir, DESKTOP_PET_PROVENANCE_FILE), JSON.stringify(provenance, null, 2));
+}
 
 /** ~/.zcode/v2/pets —— 与 setting.json 同根，跟随数据目录设置/环境变量。 */
 export function resolveDesktopPetsRootDir(): string {
@@ -51,7 +121,11 @@ export function readDesktopPetManifest(
   petId: string,
   petsRootDir: string = resolveDesktopPetsRootDir(),
 ): DesktopPetManifest | null {
-  if (!DESKTOP_PET_ID_PATTERN.test(petId)) {
+  if (
+    !DESKTOP_PET_ID_PATTERN.test(petId) ||
+    /[. ]$/.test(petId) ||
+    /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/i.test(petId)
+  ) {
     return null;
   }
   const petDir = join(petsRootDir, petId);
@@ -140,11 +214,15 @@ export function listInstalledDesktopPets(
     if (!manifest) {
       continue;
     }
+    const provenance = readPetProvenance(join(petsRootDir, manifest.id));
     result.push({
       id: manifest.id,
       displayName: manifest.displayName,
       ...(manifest.description ? { description: manifest.description } : {}),
       spriteVersionNumber: manifest.spriteVersionNumber,
+      previewUrl: `petpack://${manifest.id}/${DESKTOP_PET_SPRITESHEET_FILE}`,
+      source: provenance?.source ?? "local",
+      license: provenance?.license ?? UNKNOWN_LICENSE,
     });
   }
   return result;
@@ -182,6 +260,13 @@ export function ensureBundledDesktopPetsInstalled(
     try {
       mkdirSync(petsRootDir, { recursive: true });
       cpSync(sourceDir, targetDir, { recursive: true, force: false, errorOnExist: false });
+      writePetProvenance(targetDir, {
+        source: "bundled",
+        importedAt: Date.now(),
+        license: { text: "MIT License", commercialUse: "allowed" },
+        sourceUrl: "https://github.com/legeling/awesome-codex-pet",
+        sourceRef: "desk-otter--zihualiu1997",
+      });
     } catch {
       // 单个内置宠物复制失败不影响其他宠物与整体启用。
     }

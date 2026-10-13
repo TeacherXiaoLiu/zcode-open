@@ -61,7 +61,12 @@ import type {
   TaskNotificationPayload,
   TelemetryRendererContext,
   DesktopPetInstalledInfo,
-  DesktopPetState,
+  DesktopPetImportSource,
+  DesktopPetImportReview,
+  DesktopPetMarketPage,
+  DesktopPetOperationProgress,
+  DesktopPetActivity,
+  IPlatformService,
   RendererActionTraceBatchV1,
   RendererActionTraceConfigV1,
   RendererHeapSample,
@@ -771,15 +776,40 @@ contextBridge.exposeInMainWorld("zcode", {
   showTaskNotification: (payload: TaskNotificationPayload) =>
     ipcRenderer.send(PlatformChannels.ShowTaskNotification, payload),
   // ── 桌面宠物（本地定制，specs/desktop/desktop-pet.md）─────────────────────
-  /** 上报本窗口会话聚合状态（宠物动画输入；多窗口由 main 汇总）。 */
-  desktopPetReportState: (state: DesktopPetState): void =>
-    ipcRenderer.send(PlatformChannels.PetStateReport, state),
+  /** 上报本窗口会话活动（状态 + 最相关会话标题；多窗口由 main 汇总）。 */
+  desktopPetReportActivity: (activity: DesktopPetActivity): void =>
+    ipcRenderer.send(PlatformChannels.PetStateReport, activity),
   /** 列出本地宠物目录（设置页切换列表）。 */
   desktopPetListInstalled: (): Promise<DesktopPetInstalledInfo[]> =>
     ipcRenderer.invoke(PlatformChannels.PetListInstalled),
   /** 切换当前宠物（main 持久化并热重建宠物窗口）。 */
   desktopPetSetActive: (petId: string): Promise<void> =>
     ipcRenderer.invoke(PlatformChannels.PetSetActive, petId),
+  desktopPetListMarket: (
+    params: Parameters<NonNullable<IPlatformService["desktopPet"]>["listMarket"]>[0],
+  ): Promise<DesktopPetMarketPage> => ipcRenderer.invoke(PlatformChannels.PetListMarket, params),
+  desktopPetPrepareImport: (
+    source: DesktopPetImportSource,
+  ): Promise<DesktopPetImportReview | null> =>
+    ipcRenderer.invoke(PlatformChannels.PetPrepareImport, { source }),
+  desktopPetInstallImport: (
+    params: Parameters<NonNullable<IPlatformService["desktopPet"]>["installImport"]>[0],
+  ): Promise<void> => ipcRenderer.invoke(PlatformChannels.PetInstallImport, params),
+  desktopPetInstallMarket: (
+    params: Parameters<NonNullable<IPlatformService["desktopPet"]>["installMarketPet"]>[0],
+  ): Promise<void> => ipcRenderer.invoke(PlatformChannels.PetInstallMarket, params),
+  desktopPetDeleteInstalled: (
+    params: Parameters<NonNullable<IPlatformService["desktopPet"]>["deleteInstalled"]>[0],
+  ): Promise<void> => ipcRenderer.invoke(PlatformChannels.PetDeleteInstalled, params),
+  desktopPetCancelOperation: (operationId: string): void =>
+    ipcRenderer.send(PlatformChannels.PetCancelOperation, operationId),
+  onDesktopPetOperationProgress: (
+    callback: (progress: DesktopPetOperationProgress) => void,
+  ): (() => void) => {
+    const listener = (_event: unknown, payload: DesktopPetOperationProgress) => callback(payload);
+    ipcRenderer.on(PlatformChannels.PetOperationProgress, listener);
+    return () => ipcRenderer.removeListener(PlatformChannels.PetOperationProgress, listener);
+  },
   /** 导出日志：打包 ~/.zcode/v2 及外部 agent 日志为 zip 并在 Finder 中显示 */
   exportLogs: (): Promise<{
     success: boolean;

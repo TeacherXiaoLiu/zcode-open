@@ -12,9 +12,16 @@ export function createDesktopPlatform(options: {
     pluginSandbox: createDesktopPluginSandboxPlatform(),
     // 桌面宠物（本地定制，specs/desktop/desktop-pet.md）：状态上报 + 设置页列表/切换。
     desktopPet: {
-      reportState: (state) => window.zcode.desktopPetReportState(state),
+      reportActivity: (activity) => window.zcode.desktopPetReportActivity(activity),
       listInstalled: () => window.zcode.desktopPetListInstalled(),
       setActive: (petId) => window.zcode.desktopPetSetActive(petId),
+      listMarket: (params) => window.zcode.desktopPetListMarket(params),
+      prepareImport: (source) => window.zcode.desktopPetPrepareImport(source),
+      installImport: (params) => window.zcode.desktopPetInstallImport(params),
+      installMarketPet: (params) => window.zcode.desktopPetInstallMarket(params),
+      deleteInstalled: (params) => window.zcode.desktopPetDeleteInstalled(params),
+      cancelOperation: (operationId) => window.zcode.desktopPetCancelOperation(operationId),
+      onOperationProgress: (callback) => window.zcode.onDesktopPetOperationProgress(callback),
     },
     createLocalMediaPreviewUrl: buildLocalMediaPreviewUrl,
     isLocalDevelopmentRuntime: options.isLocalDevelopmentRuntime,

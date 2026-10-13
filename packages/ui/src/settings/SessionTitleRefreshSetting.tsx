@@ -5,48 +5,13 @@ import { toast } from "@/components/ui/toast.js";
 import { useSettings } from "@/hooks/useSettingService.js";
 import { useZCodeIntl } from "@/i18n/IntlProvider.js";
 import { logger } from "@/logger.js";
-import { SettingsRangeControl, SettingsRow } from "@/settings/SettingsPageParts.js";
+import { SettingsCommitOnReleaseRange, SettingsRow } from "@/settings/SettingsPageParts.js";
 
 /**
  * 会话标题自动刷新设置卡（本地定制，规则见 specs/session-title-auto-refresh.md）。
  * 三个字段平铺存于 AppSettings，修改经 useSettings().update 落盘并即时推送给
  * Agent 进程（热更新：改动对下一轮完成时的触发判断生效，不补跑历史）。
  */
-
-/**
- * 滑条拖动中只更新本地草稿，释放（pointerup/keyup/blur）才提交——
- * 避免拖动过程每步触发一次设置写盘 + 跨进程偏好推送。
- */
-function CommitOnReleaseRange({
-  value,
-  min,
-  max,
-  onChange,
-  onCommit,
-  ariaLabel,
-}: {
-  value: number;
-  min: number;
-  max: number;
-  onChange: (value: number) => void;
-  onCommit: () => void;
-  ariaLabel: string;
-}) {
-  return (
-    // display:contents 透传布局，仅借冒泡捕获滑条释放事件。
-    <span className="contents" onPointerUp={onCommit} onKeyUp={onCommit} onBlur={onCommit}>
-      <SettingsRangeControl
-        value={value}
-        min={min}
-        max={max}
-        step={1}
-        onChange={onChange}
-        valueLabel={value}
-        ariaLabel={ariaLabel}
-      />
-    </span>
-  );
-}
 
 export function SessionTitleRefreshSetting() {
   const { intl } = useZCodeIntl();
@@ -126,12 +91,13 @@ export function SessionTitleRefreshSetting() {
           id: "settings.sessionTitleRefresh.firstRoundDescription",
         })}
         control={
-          <CommitOnReleaseRange
+          <SettingsCommitOnReleaseRange
             value={firstRoundValue}
             min={1}
             max={50}
             onChange={setDraftFirstRound}
             onCommit={commitFirstRound}
+            valueLabel={firstRoundValue}
             ariaLabel={intl.formatMessage({ id: "settings.sessionTitleRefresh.firstRound" })}
           />
         }
@@ -142,12 +108,13 @@ export function SessionTitleRefreshSetting() {
           id: "settings.sessionTitleRefresh.intervalDescription",
         })}
         control={
-          <CommitOnReleaseRange
+          <SettingsCommitOnReleaseRange
             value={intervalValue}
             min={1}
             max={100}
             onChange={setDraftInterval}
             onCommit={commitInterval}
+            valueLabel={intervalValue}
             ariaLabel={intl.formatMessage({ id: "settings.sessionTitleRefresh.interval" })}
           />
         }

@@ -81,6 +81,7 @@ import { BrowserSettingsSection } from "@/settings/BrowserSettingsSection.js";
 import { ComputerUseSection } from "@/settings/ComputerUseSection.js";
 import { ShortcutSettingsSection } from "@/settings/ShortcutSettingsSection.js";
 import { MigrationSection } from "@/settings/MigrationSection.js";
+import { DesktopPetsSection } from "@/settings/DesktopPetsSection.js";
 import { SETTINGS_FRAME_CONTENT_CLASSNAME } from "@/settings/SettingsPageParts.js";
 import {
   SettingsBreadcrumbProvider,
@@ -304,18 +305,19 @@ export function SettingsPage({
   user?: UserInfo | null;
 }) {
   const { intl, localePreference, setLocalePreference } = useZCodeIntl();
+  const platform = usePlatform();
   const { settingsSectionGroups, settingsSections } = useMemo(
     () =>
       createSettingsPageConfig({
         isDesktop: Boolean(isDesktop),
         isMacDesktop: Boolean(isMacDesktop),
         isWindowsDesktop: Boolean(isWindowsDesktop),
+        showDesktopPet: Boolean(platform.desktopPet),
       }),
-    [isDesktop, isMacDesktop, isWindowsDesktop],
+    [isDesktop, isMacDesktop, isWindowsDesktop, platform.desktopPet],
   );
   const isLinuxDesktop = Boolean(isDesktop && !isMacDesktop && !isWindowsDesktop);
   const usesInlineWindowControls = Boolean(isWindowsDesktop || isLinuxDesktop);
-  const platform = usePlatform();
   const [activeSection, setActiveSection] = useState<SettingsSectionId>(() => {
     const initialSection = consumeInitialSettingsSection("general");
     const visibleInitialSection = resolveSettingsSectionForPlatform(
@@ -2005,6 +2007,11 @@ export function SettingsPage({
                             remoteTarget={activeWorkspaceTab?.remoteTarget}
                             localWorkspacePath={activeWorkspaceTab?.localWorkspacePath}
                           />
+                        ) : activeSection === "pets" ? (
+                          // 宠物是本机全局设置，远端 Workspace 不能成为开关或当前宠物 ID 的事实源。
+                          <ServiceProvider services={localHostServices}>
+                            <DesktopPetsSection />
+                          </ServiceProvider>
                         ) : null}
                       </div>
                     </div>

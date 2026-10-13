@@ -16,6 +16,11 @@ export interface TaskListRowActivity {
   pendingInteractions?: PendingInteractionSummary;
   /** 侧栏工作流运行行的数据；无 run 时缺席。 */
   workflowActivity?: SessionWorkflowActivity;
+  /**
+   * 最新助手回复摘要（sessions-index 的 lastAssistantPreview，≤120 字）。
+   * 侧栏不消费；桌宠汇报气泡读取它显示"当前简要回答"。
+   */
+  assistantPreview?: string;
 }
 
 export type TaskListMetaWithActivity = ZCodeTaskMeta & {

@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <title>ZCode Pet Bubble</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+      }
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        overflow: hidden;
+        background: transparent;
+        user-select: none;
+        -webkit-user-select: none;
+        cursor: default;
+      }
+      #card {
+        box-sizing: border-box;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        padding: 12px 14px;
+        border-radius: 12px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: rgba(28, 28, 32, 0.92);
+        color: #f5f5f7;
+        font:
+          13px/1.35 system-ui,
+          "Segoe UI",
+          "Microsoft YaHei",
+          sans-serif;
+        box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
+      }
+      #list {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .row {
+        display: flex;
+        align-items: flex-start;
+        gap: 8px;
+      }
+      .dot {
+        width: 8px;
+        height: 8px;
+        margin-top: 5px;
+        border-radius: 50%;
+        background: #8b8b93;
+        flex: none;
+      }
+      .row[data-state="running"] .dot {
+        background: #4c8dff;
+      }
+      .row[data-state="failed"] .dot {
+        background: #ff5d5d;
+      }
+      .row[data-state="review"] .dot {
+        background: #f5a524;
+      }
+      .body {
+        min-width: 0;
+        flex: 1;
+      }
+      .head {
+        display: flex;
+        align-items: baseline;
+        gap: 8px;
+      }
+      .title {
+        min-width: 0;
+        flex: 1;
+        font-weight: 500;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .status {
+        flex: none;
+        font-size: 11px;
+        opacity: 0.6;
+      }
+      .detail {
+        margin-top: 2px;
+        font-size: 12px;
+        opacity: 0.75;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      @media (prefers-color-scheme: light) {
+        #card {
+          border-color: rgba(0, 0, 0, 0.08);
+          background: rgba(255, 255, 255, 0.95);
+          color: #1c1c1f;
+          box-shadow: 0 6px 24px rgba(0, 0, 0, 0.18);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="card"><ul id="list"></ul></div>
+    <script type="module" src="./bubble.ts"></script>
+  </body>
+</html>

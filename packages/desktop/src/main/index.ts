@@ -46,7 +46,7 @@ import {
 } from "electron";
 import type { UtilityProcess as ElectronUtilityProcess } from "electron";
 import { spawn } from "node:child_process";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { homedir, hostname } from "node:os";
 import {
   createCredentialService,
@@ -279,7 +279,9 @@ import {
   type DesktopPetController,
 } from "./desktopPet/desktopPetController.js";
 import { registerDesktopPetIpc } from "./desktopPet/desktopPetIpc.js";
-import { createDesktopPetWindow } from "./desktopPet/desktopPetWindow.js";
+import { createDesktopPetLibrary, type DesktopPetLibrary } from "./desktopPet/desktopPetLibrary.js";
+import { createDesktopPetImageDecoder } from "./desktopPet/desktopPetImageDecoder.js";
+import { createDesktopPetWindow, createDesktopPetBubbleWindow } from "./desktopPet/desktopPetWindow.js";
 import {
   DESKTOP_PET_PACK_PRIVILEGED_SCHEME,
   installDesktopPetPackProtocol,
@@ -716,6 +718,8 @@ const webRemoteControlManagerRef = {
 let updateStatusWindow: BrowserWindow | null = null;
 // 桌面宠物（本地定制，specs/desktop/desktop-pet.md）：窗口生命周期控制器与 IPC 反注册句柄。
 let desktopPetController: DesktopPetController | undefined;
+let desktopPetLibrary: DesktopPetLibrary | undefined;
+let desktopPetImageDecoder: ReturnType<typeof createDesktopPetImageDecoder> | undefined;
 let disposeDesktopPetIpc: (() => void) | undefined;
 const UPDATE_STATUS_WINDOW_WIDTH = 512;
 const UPDATE_STATUS_WINDOW_COMPACT_HEIGHT = 205;
@@ -1130,12 +1134,13 @@ function syncImmediateAppSettings(patch: Partial<AppSettings>) {
     }
   }
 
-  // 桌面宠物（本地定制）：开关/宠物/位置都经同一条 applySettings 路径，
+  // 桌面宠物（本地定制）：开关/宠物/位置/缩放缓动都经同一条 applySettings 路径，
   // 与启动装配的初始快照共用（controllers 未装配时静默跳过）。
   if (
     patch.desktopPetEnabled !== undefined ||
     patch.desktopPetId !== undefined ||
-    patch.desktopPetPosition !== undefined
+    patch.desktopPetPosition !== undefined ||
+    patch.desktopPetScale !== undefined
   ) {
     desktopPetController?.applySettings(patch);
   }
@@ -1184,6 +1189,10 @@ async function prepareAppQuit(reason: string, kind: AppShutdownKind = "normal"):
   markForceQuit(reason);
   windowsCuaOperationIndicator.dispose();
   browserScreenshotSurfaceCoordinator.dispose();
+  desktopPetLibrary?.dispose();
+  desktopPetLibrary = undefined;
+  desktopPetImageDecoder?.dispose();
+  desktopPetImageDecoder = undefined;
   desktopPetController?.dispose();
   desktopPetController = undefined;
   disposeDesktopPetIpc?.();
@@ -1632,7 +1641,8 @@ function getApplicationWindowsExcludingCuaIndicator(): BrowserWindow[] {
       !windowsCuaOperationIndicator.ownsWindow(win) &&
       // 桌宠浮窗与 CUA 指示条同类：不属于「应用主窗」集合（close-to-tray/单实例聚焦/
       // last-window 判断都不得把它当主窗）。
-      !desktopPetController?.ownsWindow(win),
+      !desktopPetController?.ownsWindow(win) &&
+      !desktopPetImageDecoder?.ownsWindow(win),
   );
 }
 
@@ -2198,8 +2208,10 @@ app.whenReady().then(async () => {
   // 桌面宠物（本地定制，specs/desktop/desktop-pet.md）：petpack 协议 + 浮动窗控制器 + IPC。
   // 必须在 bootstrap 设置读取之后装配（宠物目录跟随 dataBaseDir 的 setDataBaseDir）。
   const desktopPetsRootDir = resolveDesktopPetsRootDir();
+  const desktopPetPreviewRoot = join(dirname(desktopPetsRootDir), "pet-market-previews");
   installDesktopPetPackProtocol(session.defaultSession.protocol, {
     petsRootDir: desktopPetsRootDir,
+    marketPreviewRootDir: desktopPetPreviewRoot,
   });
   desktopPetController = createDesktopPetController({
     logger: {
@@ -2216,27 +2228,34 @@ app.whenReady().then(async () => {
       rendererDir: join(import.meta.dirname, "../renderer"),
       rendererDevUrl: process.env["ELECTRON_RENDERER_URL"],
     }),
+    // 会话汇报气泡（三期）：独立穿透窗口，随宠物窗口创建/销毁。
+    createBubbleWindow: createDesktopPetBubbleWindow({
+      BrowserWindow,
+      app,
+      preloadPath: join(import.meta.dirname, "../preload/desktopPetBubble.cjs"),
+      rendererDir: join(import.meta.dirname, "../renderer"),
+      rendererDevUrl: process.env["ELECTRON_RENDERER_URL"],
+    }),
     persistPosition: (position) => {
       void mainSettingService
         .update({ desktopPetPosition: position })
         .catch((error) => logger.warn("[desktop-pet] persist position failed:", error));
     },
-    persistActivePetId: (petId) => {
-      void mainSettingService
-        .update({ desktopPetId: petId })
-        .catch((error) => logger.warn("[desktop-pet] persist active pet failed:", error));
+    persistActivePetId: async (petId) => {
+      await mainSettingService.update({ desktopPetId: petId });
+      for (const win of getMainApplicationWindows()) {
+        if (!win.isDestroyed()) win.webContents.send(PlatformChannels.SettingsChanged);
+      }
     },
     setEnabled: (enabled) => {
-      void mainSettingService
-        .update({ desktopPetEnabled: enabled })
-        .catch((error) => logger.warn("[desktop-pet] persist enabled failed:", error));
-      syncImmediateAppSettings({ desktopPetEnabled: enabled });
-      // 设置页的快照跟随（右键"隐藏桌宠"不经 renderer 的 useSettings.update 通道）。
-      for (const win of getApplicationWindowsExcludingCuaIndicator()) {
-        if (!win.isDestroyed()) {
-          win.webContents.send(PlatformChannels.SettingsChanged);
+      void (async () => {
+        await mainSettingService.update({ desktopPetEnabled: enabled });
+        syncImmediateAppSettings({ desktopPetEnabled: enabled });
+        // 右键隐藏必须在写盘后广播，避免设置页刷新到旧开关值。
+        for (const win of getApplicationWindowsExcludingCuaIndicator()) {
+          if (!win.isDestroyed()) win.webContents.send(PlatformChannels.SettingsChanged);
         }
-      }
+      })().catch((error) => logger.warn("[desktop-pet] 保存开关失败", error));
     },
     openMainWindow: () => {
       const win = getMainApplicationWindows()[0];
@@ -2253,15 +2272,38 @@ app.whenReady().then(async () => {
     },
     getLocale: () => currentApplicationLocale,
   });
+  desktopPetImageDecoder = createDesktopPetImageDecoder();
+  desktopPetLibrary = createDesktopPetLibrary({
+    petsRootDir: desktopPetsRootDir,
+    marketPreviewRootDir: desktopPetPreviewRoot,
+    getActivePetId: () => desktopPetController?.getActivePetId(),
+    decodeImageSize: (bytes) => desktopPetImageDecoder?.decode(bytes) ?? Promise.resolve(null),
+    selectPath: async (source, defaultPath) => {
+      const chosen = await dialog.showOpenDialog({
+        title: source === "archive" ? "导入宠物 ZIP" : "选择宠物或 pets 文件夹",
+        ...(defaultPath ? { defaultPath } : {}),
+        properties: source === "archive" ? ["openFile"] : ["openDirectory"],
+        ...(source === "archive" ? { filters: [{ name: "宠物 ZIP", extensions: ["zip"] }] } : {}),
+      });
+      return chosen.canceled ? null : (chosen.filePaths[0] ?? null);
+    },
+    logger: {
+      info: (message, meta) => logger.info(message, meta),
+      warn: (message, meta) => logger.warn(message, meta),
+    },
+  });
   disposeDesktopPetIpc = registerDesktopPetIpc({
     controller: desktopPetController,
-    petsRootDir: desktopPetsRootDir,
+    library: desktopPetLibrary,
+    isApplicationSender: (id) =>
+      getMainApplicationWindows().some((win) => win.webContents.id === id),
   });
   if (bootstrapSettings) {
     desktopPetController.applySettings({
       desktopPetEnabled: bootstrapSettings.desktopPetEnabled,
       desktopPetId: bootstrapSettings.desktopPetId,
       desktopPetPosition: bootstrapSettings.desktopPetPosition,
+      desktopPetScale: bootstrapSettings.desktopPetScale,
     });
   }
 

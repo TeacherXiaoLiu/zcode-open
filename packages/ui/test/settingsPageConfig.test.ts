@@ -130,6 +130,51 @@ describe("settingsPageConfig", () => {
     expect(settingsSections.some((section) => section.id === "computerUse")).toBe(expected);
   });
 
+  it("桌宠与基础设置同级且仅在桌宠平台能力存在时显示", async () => {
+    const { createSettingsPageConfig } = await loadSettingsPageConfig("test");
+    const withoutPet = createSettingsPageConfig({ isDesktop: true });
+    expect(withoutPet.settingsSections.some((section) => section.id === "pets")).toBe(false);
+
+    const withPet = createSettingsPageConfig({ isDesktop: true, showDesktopPet: true });
+    const basics = withPet.settingsSectionGroups.find((group) => group.id === "basics");
+    expect(basics?.sections.map((section) => section.id)).toEqual([
+      "general",
+      "appearance",
+      "modelProvider",
+      "pets",
+      "browser",
+      "computerUse",
+      "shortcuts",
+    ]);
+  });
+
+  it("默认 Web 常量不包含宠物，且历史宠物落点在 Web 回退到常规", async () => {
+    const { SETTINGS_SECTIONS, createSettingsPageConfig, resolveSettingsSectionForPlatform } =
+      await loadSettingsPageConfig("test");
+    expect(SETTINGS_SECTIONS.some((section) => section.id === "pets")).toBe(false);
+    const web = createSettingsPageConfig();
+    expect(web.settingsSections.some((section) => section.id === "pets")).toBe(false);
+    expect(resolveSettingsSectionForPlatform("pets", web.settingsSections)).toBe("general");
+    const desktop = createSettingsPageConfig({ isDesktop: true, showDesktopPet: true });
+    expect(resolveSettingsSectionForPlatform("pets", desktop.settingsSections)).toBe("pets");
+  });
+
+  it("宠物导航标题具有中英文，且仅在基础设置出现一次", async () => {
+    const { createSettingsPageConfig } = await loadSettingsPageConfig("test");
+    const { settingsSectionGroups, settingsSections } = createSettingsPageConfig({
+      isDesktop: true,
+      showDesktopPet: true,
+    });
+    expect(settingsSections.filter((section) => section.id === "pets")).toHaveLength(1);
+    expect(
+      settingsSectionGroups
+        .filter((group) => group.sections.some((section) => section.id === "pets"))
+        .map((group) => group.id),
+    ).toEqual(["basics"]);
+    expect(zhCN["settings.desktopPet.sectionTitle"]).toBe("宠物");
+    expect(enUS["settings.desktopPet.sectionTitle"]).toBe("Pets");
+  });
+
   it("桌面平台的电脑控制排在基础设置的浏览器之后", async () => {
     const { createSettingsPageConfig } = await loadSettingsPageConfig("test");
     const { settingsSectionGroups } = createSettingsPageConfig({ isMacDesktop: true });

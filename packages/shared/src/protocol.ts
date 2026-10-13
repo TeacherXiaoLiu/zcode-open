@@ -360,6 +360,8 @@ export interface AppSettings {
   desktopPetId?: string;
   /** 桌宠窗口位置；缺省 = 主显示器右下角。拖动结束后由 main 写回。 */
   desktopPetPosition?: { x: number; y: number };
+  /** 桌宠窗口缩放（0.5–2.0，默认 1.0）；尺寸 = 图集格 × scale。 */
+  desktopPetScale?: number;
   /**
    * 会话标题自动刷新（本地定制，specs/session-title-auto-refresh.md）：
    * 真实用户轮次完成时按绝对轮次网格重新生成标题的总开关；默认开启。

@@ -84,8 +84,14 @@ import type {
 } from "./cuaAccessibilitySettings.js";
 import type {
   DesktopPetActivePayload,
+  DesktopPetActivity,
+  DesktopPetBubblePayload,
   DesktopPetDragDirection,
+  DesktopPetImportReview,
+  DesktopPetImportSource,
   DesktopPetInstalledInfo,
+  DesktopPetMarketPage,
+  DesktopPetOperationProgress,
   DesktopPetState,
 } from "./desktopPet.js";
 
@@ -369,10 +375,14 @@ export const PlatformChannels = {
   // ── 桌面宠物（本地定制，specs/desktop/desktop-pet.md）─────────────────────
   /** Pet → Main：读取当前激活宠物（pet.json 归一结果 + petpack:// 精灵表 URL + 初始状态）。 */
   PetGetActive: "zcode:pet-get-active",
-  /** Renderer → Main：上报本窗口会话聚合状态（running/waiting/failed/review/idle）。 */
+  /** Renderer → Main：上报本窗口会话活动（状态 + 最相关会话标题）。 */
   PetStateReport: "zcode:pet-state",
   /** Main → Pet：下发状态动画（waving 为 one-shot，由 pet 窗口 3.2s 后回退）。 */
   DesktopPetState: "zcode:desktop-pet-state",
+  /** Bubble → Main：读取当前汇总活动（气泡窗口就绪时拉取初始值）。 */
+  PetGetActivity: "zcode:pet-get-activity",
+  /** Main → Bubble：下发汇总活动（状态 + 会话标题）。 */
+  DesktopPetActivity: "zcode:desktop-pet-activity",
   /** Pet → Main：拖动开始（main 进入跟随光标移动循环）。 */
   PetDragStart: "zcode:pet-drag-start",
   /** Pet → Main：拖动结束；返回累计位移 movedPx（≤6px 视为点击，由 pet 窗口判定单击/双击）。 */
@@ -387,6 +397,20 @@ export const PlatformChannels = {
   PetListInstalled: "zcode:pet-list-installed",
   /** Renderer（设置页）→ Main：切换当前宠物（写 desktopPetId 并热切换窗口内容）。 */
   PetSetActive: "zcode:pet-set-active",
+  /** Renderer → Main：查询固定来源的桌宠市场分页。 */
+  PetListMarket: "zcode:pet-list-market",
+  /** Renderer → Main：通过原生选择器扫描导入来源并生成短期 review token。 */
+  PetPrepareImport: "zcode:pet-prepare-import",
+  /** Renderer → Main：确认安装已预检的本地候选。 */
+  PetInstallImport: "zcode:pet-install-import",
+  /** Renderer → Main：按宠物 id 从固定市场来源安装。 */
+  PetInstallMarket: "zcode:pet-install-market",
+  /** Renderer → Main：删除已安装且非活动宠物。 */
+  PetDeleteInstalled: "zcode:pet-delete-installed",
+  /** Renderer → Main：显式取消进行中的宠物操作。 */
+  PetCancelOperation: "zcode:pet-cancel-operation",
+  /** Main → Renderer：当前窗口发起的宠物操作进度。 */
+  PetOperationProgress: "zcode:pet-operation-progress",
   /** Renderer → Main：上报 OAuth state 用于 deep link 路由 */
   OAuthRegisterState: "zcode:oauth-register-state",
   /** Main → Renderer：转发 deep link URL */
@@ -1289,11 +1313,19 @@ export interface PlatformChannelMap {
     response: DesktopPetActivePayload | undefined;
   };
   [PlatformChannels.PetStateReport]: {
-    request: DesktopPetState;
+    request: DesktopPetActivity;
     response: void;
   };
   [PlatformChannels.DesktopPetState]: {
     request: DesktopPetState | "waving";
+    response: void;
+  };
+  [PlatformChannels.PetGetActivity]: {
+    request: void;
+    response: DesktopPetBubblePayload;
+  };
+  [PlatformChannels.DesktopPetActivity]: {
+    request: DesktopPetBubblePayload;
     response: void;
   };
   [PlatformChannels.PetDragStart]: {
@@ -1322,6 +1354,40 @@ export interface PlatformChannelMap {
   };
   [PlatformChannels.PetSetActive]: {
     request: string;
+    response: void;
+  };
+  [PlatformChannels.PetListMarket]: {
+    request: {
+      query?: string;
+      category?: string;
+      cursor?: string;
+      limit?: number;
+      refresh?: boolean;
+    };
+    response: DesktopPetMarketPage;
+  };
+  [PlatformChannels.PetPrepareImport]: {
+    request: { source: DesktopPetImportSource };
+    response: DesktopPetImportReview | null;
+  };
+  [PlatformChannels.PetInstallImport]: {
+    request: { operationId: string; reviewId: string; petIds: string[]; replacePetIds?: string[] };
+    response: void;
+  };
+  [PlatformChannels.PetInstallMarket]: {
+    request: { operationId: string; petId: string; replaceExisting?: boolean };
+    response: void;
+  };
+  [PlatformChannels.PetDeleteInstalled]: {
+    request: { operationId: string; petId: string };
+    response: void;
+  };
+  [PlatformChannels.PetCancelOperation]: {
+    request: string;
+    response: void;
+  };
+  [PlatformChannels.PetOperationProgress]: {
+    request: DesktopPetOperationProgress;
     response: void;
   };
   [PlatformChannels.GetDesktopZoomLevel]: {

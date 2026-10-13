@@ -21,8 +21,28 @@ export interface DesktopPetWindowHandle {
   send(channel: string, payload: unknown): void;
   getBounds(): Rectangle;
   setPosition(x: number, y: number): void;
+  /** 缩放缓动：整块换 bounds（尺寸 + 位置），避免先改尺寸再挪位的中间态闪烁。 */
+  setBounds(bounds: Rectangle): void;
   /** 判断某 BrowserWindow 是否为本宠物窗口（接入主窗集合排除逻辑）。 */
   ownsWindow(candidate: object): boolean;
+  ownsWebContents(id: number): boolean;
+}
+
+/**
+ * 汇报气泡窗口（三期，specs/desktop/desktop-pet.md）。
+ * 与宠物窗口同族属性，但额外 `setIgnoreMouseEvents(true)`：纯展示，不挡桌面操作。
+ */
+export interface DesktopPetBubbleWindowHandle {
+  onceReadyToShow(callback: () => void): void;
+  showInactive(): void;
+  hide(): void;
+  destroy(): void;
+  isDestroyed(): boolean;
+  isVisible(): boolean;
+  send(channel: string, payload: unknown): void;
+  setBounds(bounds: Rectangle): void;
+  ownsWindow(candidate: object): boolean;
+  ownsWebContents(id: number): boolean;
 }
 
 export function createDesktopPetWindow(deps: {
@@ -85,8 +105,95 @@ export function createDesktopPetWindow(deps: {
       setPosition(x: number, y: number) {
         if (!win.isDestroyed()) win.setPosition(Math.round(x), Math.round(y), false);
       },
+      setBounds(bounds: Rectangle) {
+        if (!win.isDestroyed())
+          win.setBounds({
+            x: Math.round(bounds.x),
+            y: Math.round(bounds.y),
+            width: Math.round(bounds.width),
+            height: Math.round(bounds.height),
+          });
+      },
       ownsWindow(candidate: object) {
         return candidate === win;
+      },
+      ownsWebContents(id: number) {
+        return !win.isDestroyed() && win.webContents.id === id;
+      },
+    };
+  };
+}
+
+export function createDesktopPetBubbleWindow(deps: {
+  BrowserWindow: typeof import("electron").BrowserWindow;
+  app: Pick<typeof import("electron").app, "isPackaged">;
+  preloadPath: string;
+  rendererDir: string;
+  rendererDevUrl?: string | undefined;
+}): (initialBounds: Rectangle) => DesktopPetBubbleWindowHandle {
+  return (initialBounds: Rectangle) => {
+    const win = new deps.BrowserWindow({
+      ...initialBounds,
+      type: "panel",
+      frame: false,
+      transparent: true,
+      hasShadow: false,
+      resizable: false,
+      minimizable: false,
+      maximizable: false,
+      fullscreenable: false,
+      focusable: false,
+      skipTaskbar: true,
+      show: false,
+      webPreferences: {
+        preload: deps.preloadPath,
+        contextIsolation: true,
+        nodeIntegration: false,
+      },
+    });
+    // 纯展示浮层：完全穿透鼠标，气泡覆盖区域仍可操作下方窗口。
+    win.setIgnoreMouseEvents(true);
+
+    if (!deps.app.isPackaged && deps.rendererDevUrl) {
+      void win.loadURL(`${deps.rendererDevUrl}/bubble.html`);
+    } else {
+      void win.loadFile(`${deps.rendererDir}/bubble.html`);
+    }
+
+    return {
+      onceReadyToShow(callback: () => void) {
+        win.once("ready-to-show", callback);
+      },
+      showInactive() {
+        win.showInactive();
+        win.setAlwaysOnTop(true, "screen-saver");
+        win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+      },
+      hide() {
+        win.hide();
+      },
+      destroy() {
+        win.destroy();
+      },
+      isDestroyed: () => win.isDestroyed(),
+      isVisible: () => !win.isDestroyed() && win.isVisible(),
+      send(channel: string, payload: unknown) {
+        if (!win.isDestroyed()) win.webContents.send(channel, payload);
+      },
+      setBounds(bounds: Rectangle) {
+        if (!win.isDestroyed())
+          win.setBounds({
+            x: Math.round(bounds.x),
+            y: Math.round(bounds.y),
+            width: Math.round(bounds.width),
+            height: Math.round(bounds.height),
+          });
+      },
+      ownsWindow(candidate: object) {
+        return candidate === win;
+      },
+      ownsWebContents(id: number) {
+        return !win.isDestroyed() && win.webContents.id === id;
       },
     };
   };

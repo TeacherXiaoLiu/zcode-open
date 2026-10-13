@@ -245,6 +245,8 @@ export default defineConfig(({ mode }) => {
           "cua-permission-panel": resolve(__dirname, "src/renderer/cua-permission-panel.html"),
           // 桌面宠物悬浮窗（本地定制，specs/desktop/desktop-pet.md）
           pet: resolve(__dirname, "src/renderer/pet.html"),
+          // 桌面宠物会话汇报气泡（三期）
+          bubble: resolve(__dirname, "src/renderer/bubble.html"),
           // 插件 UI 沙箱的受信 shell，经 zcode-sandbox:// 提供
           "plugin-sandbox": resolve(__dirname, "src/renderer/plugin-sandbox.html"),
         },

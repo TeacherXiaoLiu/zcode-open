@@ -1,6 +1,7 @@
 /* oxlint-disable eslint(max-lines) -- AppSettings schema 聚合历史迁移、默认值和 patch 校验，拆分会削弱设置迁移的单一入口。 */
 import { z } from "zod";
 import type { AppSettings } from "./protocol.js";
+import { normalizeDesktopPetScale } from "./desktopPet.js";
 import { REMOTE_ASSET_INSTALL_MODES } from "./remoteAssetInstallMode.js";
 import { isKnownRemoteResourcePackageId } from "./remoteResourcePackages.js";
 import { wslUserSchema } from "./wslUserValidation.js";
@@ -493,6 +494,11 @@ const appSettingsObjectSchema = z.object({
   desktopPetEnabled: z.boolean().default(false),
   desktopPetId: nonEmptyStringSchema.optional(),
   desktopPetPosition: z.object({ x: z.number().int(), y: z.number().int() }).optional(),
+  // 缩放三期：历史存档可能带任意数值，统一按 0.5–2.0 夹取，非法值回落默认。
+  desktopPetScale: z
+    .number()
+    .transform((value) => normalizeDesktopPetScale(value))
+    .optional(),
   messageStreamShowReasoning: z.boolean().default(true),
   messageStreamShowReasoningMigrationInitialized: z.boolean().default(true),
   messageStreamShowTodos: z.boolean().default(false),
@@ -578,6 +584,10 @@ export const appSettingsPatchSchema = z.object({
   desktopPetEnabled: z.boolean().optional(),
   desktopPetId: nonEmptyStringSchema.optional(),
   desktopPetPosition: z.object({ x: z.number().int(), y: z.number().int() }).optional(),
+  desktopPetScale: z
+    .number()
+    .transform((value) => normalizeDesktopPetScale(value))
+    .optional(),
   messageStreamShowReasoning: z.boolean().optional(),
   messageStreamShowReasoningMigrationInitialized: z.boolean().optional(),
   messageStreamShowTodos: z.boolean().optional(),

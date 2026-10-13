@@ -42,18 +42,38 @@ function safeRealpath(path: string): string | null {
 
 export function installDesktopPetPackProtocol(
   protocol: DesktopPetPackProtocol,
-  options: { petsRootDir: string },
+  options: { petsRootDir: string; marketPreviewRootDir?: string },
 ): void {
   protocol.registerFileProtocol(DESKTOP_PET_PACK_SCHEME, (request, callback) => {
     try {
-      // pets 根目录可能晚于协议安装才创建（首次启用时铺内置宠物），
+      const url = new URL(request.url);
+      // 市场缩略图由 main 从固定 codexpet.top 源限长下载后缓存；renderer 只能引用 slug，
+      // 不能把任意 preview URL 或路径传进协议。
+      const marketPreviewMatch =
+        url.hostname === "market-preview"
+          ? /^\/([a-zA-Z0-9][a-zA-Z0-9._-]{0,127})\/idle\.webp$/.exec(url.pathname)
+          : null;
+      if (marketPreviewMatch || (url.hostname === "market-preview" && url.pathname !== `/${DESKTOP_PET_SPRITESHEET_FILE}`)) {
+        if (!marketPreviewMatch || !options.marketPreviewRootDir) {
+          callback({ error: NET_ERR_FILE_NOT_FOUND });
+          return;
+        }
+        const root = safeRealpath(options.marketPreviewRootDir);
+        const target = safeRealpath(join(options.marketPreviewRootDir, `${marketPreviewMatch[1]}.webp`));
+        if (!root || !target || !target.startsWith(root + sep)) {
+          callback({ error: NET_ERR_FILE_NOT_FOUND });
+          return;
+        }
+        callback(target);
+        return;
+      }
+      // pets 根目录可能晚于协议安装时创建（首次启用时铺内置宠物），
       // realpath 必须按每次请求惰性解析：安装时缓存 null 会让所有请求永久 404。
       const normalizedRoot = safeRealpath(options.petsRootDir);
       if (!normalizedRoot) {
         callback({ error: NET_ERR_FILE_NOT_FOUND });
         return;
       }
-      const url = new URL(request.url);
       const petId = url.hostname;
       if (!DESKTOP_PET_ID_PATTERN.test(petId)) {
         callback({ error: NET_ERR_FILE_NOT_FOUND });
@@ -63,9 +83,7 @@ export function installDesktopPetPackProtocol(
         callback({ error: NET_ERR_FILE_NOT_FOUND });
         return;
       }
-      const target = safeRealpath(
-        join(options.petsRootDir, petId, DESKTOP_PET_SPRITESHEET_FILE),
-      );
+      const target = safeRealpath(join(options.petsRootDir, petId, DESKTOP_PET_SPRITESHEET_FILE));
       if (!target || !target.startsWith(normalizedRoot + sep)) {
         callback({ error: NET_ERR_FILE_NOT_FOUND });
         return;

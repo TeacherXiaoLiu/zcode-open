@@ -19,6 +19,15 @@ describe("Settings breadcrumb coverage", () => {
     expect(source).toContain("onSectionSelect");
   });
 
+  it("桌宠管理页投影宠物管理 breadcrumb，首页保持一级设置状态", () => {
+    const source = readSettingsSection("DesktopPetsSection");
+    expect(source).toContain("SettingsBreadcrumbReporter");
+    expect(source).toContain('id: "settings.desktopPet.managementTitle"');
+    expect(source).toContain("onSectionSelect={() => setManaging(false)}");
+    expect(source).toMatch(/managing \? \(\s*<SettingsBreadcrumbReporter/);
+    expect(source).not.toContain("setPendingSettingsSection");
+  });
+
   it("projects automation edit navigation from the views that own dirty-state back handling", () => {
     for (const section of ["AutomationEditView", "OffPeakEditView"]) {
       const source = readSettingsSection(section);
