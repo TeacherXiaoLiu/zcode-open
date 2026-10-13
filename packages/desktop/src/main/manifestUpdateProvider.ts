@@ -193,9 +193,14 @@ export class ManifestUpdateProvider extends Provider<UpdateInfo> {
     this.options = options;
     this.linuxExtensions = getLinuxUpdateExtensions(updater);
     this.releasePlatform = options.releasePlatform?.trim() || getElectronReleasePlatform();
-    this.resolveBaseUrl = new URL(
-      normalizeZCodeEndpointOrigin(options.endpointOrigin ?? DEFAULT_ZCODE_ENDPOINT_ORIGIN),
-    );
+    // 初始 base 与 getLatestVersion 的选取规则一致（自定义 manifest 用清单自身，
+    // 官方端点用 endpoint origin）；resolveFiles 在 getLatestVersion 之前被直接调用时
+    // （测试与异常路径）也保持同一语义。
+    this.resolveBaseUrl = options.manifestUrl?.trim()
+      ? new URL(options.manifestUrl.trim())
+      : new URL(
+          normalizeZCodeEndpointOrigin(options.endpointOrigin ?? DEFAULT_ZCODE_ENDPOINT_ORIGIN),
+        );
   }
 
   override get isUseMultipleRangeRequest(): boolean {
@@ -212,7 +217,15 @@ export class ManifestUpdateProvider extends Provider<UpdateInfo> {
       deviceMid: this.options.deviceMid,
       channel: releaseChannel,
     });
-    this.resolveBaseUrl = new URL("/", manifestUrl);
+    // 文件地址的解析基准（相对路径的 base）：
+    //   - 官方服务端 manifest（未提供自定义 manifestUrl）：文件相对 endpoint origin
+    //     （契约：`releases/x` → `<origin>/releases/x`，与官方端点路径深度无关）；
+    //   - 自定义 manifestUrl（GitHub Releases / 静态托管）：清单与资产同目录，
+    //     必须取 manifest URL 自身作 base——曾用 origin 作 base，导致
+    //     `ZCode-Preview-x.exe` 被解析成 `https://github.com/ZCode-Preview-x.exe`（404）。
+    this.resolveBaseUrl = this.options.manifestUrl?.trim()
+      ? new URL(manifestUrl)
+      : new URL("/", manifestUrl);
     const releaseChannelApiValue = mapReleaseChannelToApiValue(releaseChannel);
 
     const raw = await this.httpRequest(manifestUrl, {

@@ -144,6 +144,51 @@ describe("Linux manifest 与真实 updater 文件选择契约", () => {
   });
 });
 
+describe("自定义 manifest URL（GitHub Releases 静态托管）", () => {
+  it("相对文件名解析到 manifest 所在目录，而不是 origin 根", () => {
+    const provider = new ManifestUpdateProvider(
+      {
+        provider: "custom",
+        endpointOrigin: "https://zcode.example.test",
+        manifestUrl: "https://github.com/acme/app/releases/latest/download/latest.yml",
+      },
+      Object.create(NsisUpdater.prototype),
+      { platform: "win32", isUseMultipleRangeRequest: false, executor: {} as never },
+    );
+    const resolved = provider.resolveFiles({
+      version: "3.15.3",
+      releaseDate: "2026-10-14",
+      files: [{ url: "ZCode-Preview-3.15.3-win-x64.exe", sha512: "checksum" }],
+    });
+    // 回归：曾取 origin 作 base，解析成 https://github.com/ZCode-Preview-3.15.3-win-x64.exe（404）。
+    expect(resolved[0]?.url.href).toBe(
+      "https://github.com/acme/app/releases/latest/download/ZCode-Preview-3.15.3-win-x64.exe",
+    );
+  });
+
+  it("自定义 manifest 场景下绝对 URL 与查询参数不被改写", () => {
+    const provider = new ManifestUpdateProvider(
+      {
+        provider: "custom",
+        endpointOrigin: "https://zcode.example.test",
+        manifestUrl: "https://cdn.example.test/app/stable/latest.yml?token=abc",
+      },
+      Object.create(NsisUpdater.prototype),
+      { platform: "win32", isUseMultipleRangeRequest: false, executor: {} as never },
+    );
+    const resolved = provider.resolveFiles({
+      version: "3.15.3",
+      releaseDate: "2026-10-14",
+      files: [
+        { url: "https://other.example.test/direct.exe", sha512: "c1" },
+        { url: "assets/ZCode.exe?download=1", sha512: "c2" },
+      ],
+    });
+    expect(resolved[0]?.url.href).toBe("https://other.example.test/direct.exe");
+    expect(resolved[1]?.url.href).toBe("https://cdn.example.test/app/stable/assets/ZCode.exe?download=1");
+  });
+});
+
 describe("macOS / Windows 更新解析保持兼容", () => {
   it.each([
     [MacUpdater, "darwin", "zip", "dmg"],
