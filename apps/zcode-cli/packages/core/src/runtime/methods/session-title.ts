@@ -459,15 +459,11 @@ export function maybeStartSessionTitleRefresh(
   });
 }
 
-async function runSessionTitleRefresh(
-  this: AgentRuntimeInternal,
-  refreshConfig: SessionTitleRefreshConfig,
-  traceContext: TraceContext,
-  causation: AgentTelemetryCausation | undefined,
-): Promise<void> {
+/** 会话里「可见真实用户消息」的文本（按发生序、过滤空白）——轮次计数与取样共用。 */
+async function collectVisibleRealUserTexts(this: AgentRuntimeInternal): Promise<string[]> {
   const messages = await this.sessionStore?.messages({ sessionID: this.sessionId });
-  if (!messages) return;
-  const realUserTexts = messages
+  if (!messages) return [];
+  return messages
     .filter((message) => isVisibleRealUserMessage(message))
     .map((message) =>
       message.parts
@@ -477,6 +473,15 @@ async function runSessionTitleRefresh(
         .trim(),
     )
     .filter((text) => text.length > 0);
+}
+
+async function runSessionTitleRefresh(
+  this: AgentRuntimeInternal,
+  refreshConfig: SessionTitleRefreshConfig,
+  traceContext: TraceContext,
+  causation: AgentTelemetryCausation | undefined,
+): Promise<void> {
+  const realUserTexts = await collectVisibleRealUserTexts.call(this);
   // 轮次用全量计数；取样另行「首条 + 最近若干条」，两者口径不同不要混用。
   if (!isTitleRefreshDueAtRound(realUserTexts.length, refreshConfig)) return;
   const input = buildTitleRefreshInputText(
@@ -493,4 +498,33 @@ async function runSessionTitleRefresh(
     status: "started",
   });
   await generateAndPersistSessionTitle.call(this, input, undefined, traceContext, { causation });
+}
+
+/**
+ * 定制（本地分支）：重命名对话框的「生成新标题」——只生成候选，不持久化、不发事件。
+ *
+ * 与定期刷新共用取样（首条 + 最近若干条）与同一 sidecar；候选由 UI 填入重命名输入框，
+ * 用户确认后再走既有 renameSession（custom 来源）保存。生成失败返回 null，由 UI 静默处理。
+ */
+export async function generateSessionTitleForRename(
+  this: AgentRuntimeInternal,
+  input: { traceContext: TraceContext },
+): Promise<string | null> {
+  if (!this.config.titleGeneration) return null;
+  if (this.config.parentSessionId) return null;
+  if (this.config.taskType && this.config.taskType !== "interactive") return null;
+  if (!this.sessionStore) return null;
+  const realUserTexts = await collectVisibleRealUserTexts.call(this);
+  if (realUserTexts.length === 0) return null;
+  const promptInput = buildTitleRefreshInputText(
+    selectTitleRefreshSamples(realUserTexts),
+    MAX_TITLE_INPUT_CHARS,
+  );
+  if (!promptInput) return null;
+  const generated = await generateTitleCandidate.call(this, promptInput, {
+    causation: this.agentTelemetry.captureCausation(),
+    querySource: SESSION_TITLE_QUERY_SOURCE,
+    traceContext: input.traceContext,
+  });
+  return generated?.title ?? null;
 }

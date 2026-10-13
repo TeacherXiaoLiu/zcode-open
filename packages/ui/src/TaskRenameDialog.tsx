@@ -1,5 +1,6 @@
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import type { RefObject } from "react";
+import { SparklesIcon } from "lucide-react";
 import { Button } from "@/components/ui/button.js";
 import {
   Dialog,
@@ -21,6 +22,7 @@ export function TaskRenameDialog({
   onChange,
   onCancel,
   onConfirm,
+  onGenerateTitle,
 }: {
   open: boolean;
   value: string;
@@ -32,8 +34,20 @@ export function TaskRenameDialog({
   onChange: (value: string) => void;
   onCancel: () => void;
   onConfirm: () => void;
+  /** 定制（本地分支）：生成候选标题并填入输入框（由调用方负责 onChange）；用户确认后再保存。 */
+  onGenerateTitle?: () => Promise<void>;
 }) {
   const compositionActiveRef = useRef(false);
+  const [generatingTitle, setGeneratingTitle] = useState(false);
+  const handleGenerateTitle = async () => {
+    if (!onGenerateTitle || generatingTitle) return;
+    setGeneratingTitle(true);
+    try {
+      await onGenerateTitle();
+    } finally {
+      setGeneratingTitle(false);
+    }
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -81,6 +95,23 @@ export function TaskRenameDialog({
                 }
               }}
             />
+            {onGenerateTitle ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-8 w-fit min-w-0 gap-1.5 px-2 text-[var(--color-foreground-subtle)]"
+                disabled={generatingTitle}
+                onClick={() => {
+                  void handleGenerateTitle();
+                }}
+              >
+                <SparklesIcon className="size-3.5" />
+                {intl.formatMessage({
+                  id: generatingTitle ? "taskList.generatingTitle" : "taskList.generateTitle",
+                })}
+              </Button>
+            ) : null}
           </div>
           <DialogFooter className="flex items-center justify-end gap-3">
             <Button

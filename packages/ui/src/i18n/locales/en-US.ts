@@ -2202,6 +2202,8 @@ const enUS: Record<string, string> = {
   "taskList.pin": "Pin task",
   "taskList.unpin": "Unpin task",
   "taskList.rename": "Rename task",
+  "taskList.generateTitle": "Generate new title",
+  "taskList.generatingTitle": "Generating…",
   "taskList.archive": "Archive task",
   "taskList.archiveLocal": "Archive local task",
   "taskList.archiveRemote": "Archive remote task",

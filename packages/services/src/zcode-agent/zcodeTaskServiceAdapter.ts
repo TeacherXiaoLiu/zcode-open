@@ -3409,6 +3409,33 @@ export function createZCodeTaskServiceAdapter(
       }
     },
 
+    async generateTaskTitle(params): Promise<{ title: string } | null> {
+      try {
+        const ack = await options.zcodeAgentService.sendConversationCommandV4({
+          workspacePath: params.workspacePath,
+          workspaceIdentity: params.workspaceIdentity,
+          envelope: createHostCommandEnvelope({
+            type: "generateSessionTitle",
+            sessionId: params.taskId,
+            payload: {},
+          }),
+        });
+        assertV4CommandAckOk("generateSessionTitle", ack, `session=${params.taskId}`);
+        const result = ack.result;
+        if (!result || result.type !== "generateSessionTitle") return null;
+        return { title: result.title };
+      } catch (error) {
+        // 生成是重命名对话框内的辅助动作：失败不弹错，客户端保留原输入即可。
+        logger.warn(undefined, "[ZCodeTaskService] generateTaskTitle failed", {
+          taskId: params.taskId,
+          workspacePath: params.workspacePath,
+          workspaceIdentity: params.workspaceIdentity,
+          message: error instanceof Error ? error.message : String(error),
+        });
+        return null;
+      }
+    },
+
     async setTaskPinned(params): Promise<ZCodeTaskMeta> {
       setOverlay(params, { pinned: params.pinned });
       const meta = await updateIndexedTaskState(params, {

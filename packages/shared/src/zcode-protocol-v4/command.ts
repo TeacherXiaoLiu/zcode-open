@@ -285,6 +285,9 @@ export const commandPayloadSchemas = {
   // 词表见 workflow-run-settings-command.ts；能力缺席 → V4CapabilityUnsupportedError。
   amendWorkflowRunSettings: amendWorkflowRunSettingsPayloadSchema,
   renameSession: z.object({ title: z.string() }),
+  // 定制（本地分支）：重命名对话框「生成新标题」——只生成候选不落库，
+  // 候选经 ACK.result 返回，由用户确认后再走 renameSession 保存。
+  generateSessionTitle: z.object({}).strict(),
   deleteSession: z.object({}),
   discardSharedContext: z.object({ contextId: z.string().trim().min(1) }).strict(),
 } as const;
@@ -440,6 +443,11 @@ export const commandResultSchema = z.discriminatedUnion("type", [
     // 持久事实，不能由客户端按当前 UI phase 猜测。
     type: z.literal("inputDisposition"),
     delivery: z.enum(["startNow", "queue", "guide"]),
+  }),
+  z.object({
+    // 定制（本地分支）：generateSessionTitle 的候选标题；由用户确认后经 renameSession 保存。
+    type: z.literal("generateSessionTitle"),
+    title: z.string().min(1),
   }),
 ]);
 export type CommandResult = z.infer<typeof commandResultSchema>;

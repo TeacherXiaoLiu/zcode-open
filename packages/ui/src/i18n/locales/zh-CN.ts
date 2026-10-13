@@ -2064,6 +2064,8 @@ const zhCN: Record<string, string> = {
   "taskList.pin": "置顶任务",
   "taskList.unpin": "取消置顶任务",
   "taskList.rename": "重命名任务",
+  "taskList.generateTitle": "生成新标题",
+  "taskList.generatingTitle": "生成中…",
   "taskList.archive": "归档任务",
   "taskList.archiveLocal": "归档本地任务",
   "taskList.archiveRemote": "归档远端任务",

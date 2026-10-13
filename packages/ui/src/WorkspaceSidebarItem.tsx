@@ -543,6 +543,32 @@ export const WorkspaceSidebarItem = memo(function WorkspaceSidebarItem({
     ],
   );
 
+  // 定制（本地分支）：重命名对话框「生成新标题」——经 task service 生成候选（只生成不保存），
+  // 无候选/失败返回 null，对话框保留原输入。
+  const handleGenerateTaskTitle = useCallback(
+    async (taskId: string) => {
+      if (readOnlyReason) {
+        return null;
+      }
+      logger.info("[WorkspaceSidebarItem] generate task title start", {
+        taskId,
+        workspacePath: tab.workspacePath,
+        workspaceIdentity: tab.workspaceIdentity,
+      });
+      const result = await zcodeTaskService.generateTaskTitle({
+        taskId,
+        workspacePath: tab.workspacePath,
+        ...(tab.workspaceIdentity ? { workspaceIdentity: tab.workspaceIdentity } : {}),
+      });
+      logger.info("[WorkspaceSidebarItem] generate task title resolved", {
+        taskId,
+        hasTitle: Boolean(result?.title),
+      });
+      return result;
+    },
+    [readOnlyReason, tab.workspaceIdentity, tab.workspacePath, zcodeTaskService],
+  );
+
   const handleSetTaskPinned = useCallback(
     async (taskId: string, pinned: boolean) => {
       if (readOnlyReason) {
@@ -1137,6 +1163,7 @@ export const WorkspaceSidebarItem = memo(function WorkspaceSidebarItem({
             mobileActiveTaskKey={mobileActiveTaskKey}
             onShowMore={onShowMoreTasks}
             onRenameTask={handleRenameTask}
+            onGenerateTaskTitle={handleGenerateTaskTitle}
             onSetTaskPinned={handleSetTaskPinned}
             onArchiveTask={handleArchiveTask}
             onSetTaskUnread={handleSetTaskUnread}

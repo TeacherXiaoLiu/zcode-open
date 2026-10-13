@@ -43,6 +43,7 @@ export const TaskList = memo(function TaskList({
   hasMore = false,
   onShowMore,
   onRenameTask,
+  onGenerateTaskTitle,
   onSetTaskPinned,
   onArchiveTask,
   onSetTaskUnread,
@@ -65,6 +66,8 @@ export const TaskList = memo(function TaskList({
   hasMore?: boolean;
   onShowMore?: () => void;
   onRenameTask: (taskId: string, title: string) => Promise<ZCodeTaskMeta | null>;
+  /** 定制（本地分支）：重命名对话框「生成新标题」——返回候选供对话框填入。 */
+  onGenerateTaskTitle?: (taskId: string) => Promise<{ title: string } | null>;
   onSetTaskPinned: (taskId: string, pinned: boolean) => Promise<ZCodeTaskMeta | null>;
   onArchiveTask: (taskId: string) => Promise<ZCodeTaskMeta | null>;
   onSetTaskUnread: (taskId: string, unread: boolean) => Promise<ZCodeTaskMeta | null>;
@@ -398,6 +401,17 @@ export const TaskList = memo(function TaskList({
             }
           }}
           onChange={setRenameDraft}
+          onGenerateTitle={
+            onGenerateTaskTitle
+              ? async () => {
+                  if (!renamingTaskId) return;
+                  const result = await onGenerateTaskTitle(renamingTaskId);
+                  if (result) {
+                    setRenameDraft(result.title);
+                  }
+                }
+              : undefined
+          }
           onCancel={handleCancelRenameTask}
           onConfirm={() => {
             logger.info("[TaskList] rename confirm dispatched", {

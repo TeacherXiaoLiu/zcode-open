@@ -763,6 +763,13 @@ export interface IZCodeTaskService {
     title: string;
   }): Promise<ZCodeTaskMeta>;
 
+  /** 定制（本地分支）：为重命名对话框生成候选标题（只生成不保存，失败返回 null） */
+  generateTaskTitle(params: {
+    taskId: string;
+    workspacePath: string;
+    workspaceIdentity?: string;
+  }): Promise<{ title: string } | null>;
+
   /** 更新 task 置顶状态 */
   setTaskPinned(params: {
     taskId: string;

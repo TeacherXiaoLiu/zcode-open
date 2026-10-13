@@ -198,9 +198,27 @@ async function discardSharedContext(
   return undefined;
 }
 
+/**
+ * generateSessionTitle（定制，本地分支）：重命名对话框的「生成新标题」候选。
+ * 只生成、不落库、不发事件；title 经 ACK.result 返回，用户确认后仍走
+ * renameSession 的 custom 链路保存。生成失败返回 undefined（客户端静默保留原输入）。
+ */
+async function generateSessionTitle(
+  host: V4CommandCoreHost,
+  envelope: CommandEnvelope,
+): Promise<CommandResult | undefined> {
+  const record = requireRecord(host, envelope.sessionId);
+  // 注意：方法必须经 runtime 调用（不可解构，实现依赖 this 绑定，见 methods/index.ts 挂载方式）。
+  const title = await record.app.runtime.generateSessionTitleForRename({
+    traceContext: record.traceContext,
+  });
+  return title ? { type: "generateSessionTitle", title } : undefined;
+}
+
 export const sessionMgmtHandlers = {
   createSession,
   renameSession,
   deleteSession,
+  generateSessionTitle,
   discardSharedContext,
 };

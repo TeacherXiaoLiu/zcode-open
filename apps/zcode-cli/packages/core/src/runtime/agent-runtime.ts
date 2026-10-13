@@ -404,6 +404,11 @@ export interface AgentRuntime {
   ): void;
   /** renameSession：用户显式重命名（titleSource=custom，发 SessionTitleUpdated）。 */
   setCustomSessionTitle(input: { title: string; traceContext: TraceContext }): Promise<void>;
+  /**
+   * 定制（本地分支）：重命名对话框「生成新标题」——只生成候选（不持久化、不发事件），
+   * 失败返回 null；候选由 UI 确认后再走 setCustomSessionTitle 保存。
+   */
+  generateSessionTitleForRename(input: { traceContext: TraceContext }): Promise<string | null>;
   maybeStartGoalSummaryTitleGeneration(
     input: string,
     targetID: string,

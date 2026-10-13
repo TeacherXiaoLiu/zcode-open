@@ -191,6 +191,7 @@ import { generateWorkspaceText, testModelConnectivity } from "./workspace-genera
 import { maybeStartGoalSummaryTitleGeneration } from "./goal-summary-title.js";
 import { maybeStartSessionTitleGenerationFromExternalInput } from "./session-title.js";
 import { setCustomSessionTitle } from "./session-title.js";
+import { generateSessionTitleForRename } from "./session-title.js";
 import {
   drainMemoryExtractions,
   isProjectMemoryEnabled,
@@ -215,6 +216,7 @@ export function installAgentRuntimeMethods(ctor: AgentRuntimeConstructor): void 
   proto.maybeStartSessionTitleGenerationFromExternalInput =
     maybeStartSessionTitleGenerationFromExternalInput;
   proto.setCustomSessionTitle = setCustomSessionTitle;
+  proto.generateSessionTitleForRename = generateSessionTitleForRename;
   proto.maybeStartGoalSummaryTitleGeneration = maybeStartGoalSummaryTitleGeneration;
   proto.testModelConnectivity = testModelConnectivity;
   proto.recordExternalUserPrompt = recordExternalUserPrompt;
