@@ -2270,6 +2270,12 @@ app.whenReady().then(async () => {
       }
       win.focus();
     },
+    // 气泡点击会话条：广播给主窗口，由 renderer 复用既有任务导航（含跨 workspace 切换）。
+    openSession: (sessionId) => {
+      for (const win of getMainApplicationWindows()) {
+        if (!win.isDestroyed()) win.webContents.send(PlatformChannels.PetOpenSession, sessionId);
+      }
+    },
     getLocale: () => currentApplicationLocale,
   });
   desktopPetImageDecoder = createDesktopPetImageDecoder();

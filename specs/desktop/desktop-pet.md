@@ -179,27 +179,44 @@ renderer（useDesktopPetStateDriver，聚合本窗口所有会话）
 ## 会话实时汇报气泡（三期）
 
 - 独立的 `bubble` BrowserWindow：`transparent, frame: false, focusable: false, skipTaskbar,
-  resizable: false`，并 `setIgnoreMouseEvents(true)`（纯展示，不挡桌面操作）；
-  置顶与可见性规则同宠物窗口；随宠物窗口创建/销毁。
+  resizable: false`；置顶与可见性规则同宠物窗口；随宠物窗口创建/销毁。
+- **可交互**：气泡整窗接收鼠标（点击会话条跳转）；条目 hover 高亮。尺寸小且只覆盖
+  宠物旁一小块区域，交互优先于穿透。
 - 位置跟随宠物窗口：优先放在宠物**左侧**（默认宠物在屏幕右下角，气泡朝屏幕内侧），
   左侧空间不足时放右侧；垂直与宠物顶部对齐并夹取到工作区。拖动/缩放宠物时同步重定位。
-- 显示规则：汇总活动非 `idle` 且有会话条目时显示，回到 `idle`（或空列表）时隐藏。
-  气泡不承载交互（点击穿透），双击宠物打开主窗保持不变。
-- 内容：**会话列表**，每条 = 状态色点 + 会话标题 + 最新助手回复摘要（一行，省略号截断）；
-  右侧显示该条的状态文字（正在工作 / 等待查看 / 出错了 / 等待中）。
-  最多 3 条，按 running → failed → review → waiting 排序、同优先级按活动时间倒序；
+- 内容：**会话列表**，每条 = 状态灯 + 会话标题 + 最新助手回复摘要（一行，省略号截断）；
+  右侧显示该条的状态文字。状态灯语义：
+
+  | 条目状态 | 灯色 | 文案 | 来源 |
+  |---|---|---|---|
+  | `running` | 蓝 | 正在工作 | phase running/prewarming 或 status running |
+  | `completed` | **绿** | 已完成 | phase completedSuccess（或 status completed） |
+  | `interrupted` | 红 | 已中断 | phase completedInterrupted |
+  | `failed` | 红 | 失败 | phase error（或 status error） |
+  | `waiting` | 灰 | 等待中 | 其他未读 |
+
+- **保留规则（完成后不立即消失）**：运行中与未读会话始终显示；**本窗口运行期间出现过
+  running 的会话**（renderer 内存 tracked 集合）完成后继续保留（绿灯/红灯），直到用户
+  点击该条跳转（视为已处理，main 记录 dismissed 并从气泡移除）。同一会话重新运行会
+  清除 dismissed 标记，完成后可再次提醒。应用重启后 tracked 自然清空。
+- 排序：运行中 → 中断 → 失败 → 完成 → 等待；同优先级按活动时间倒序；最多 3 条，
   窗口高度随条数自适应（main 在推送前按条数 setBounds，重新挂靠同一位置）。
   文案按主进程 locale 在气泡页内置 zh-CN/en-US 映射（不引入完整 i18n 框架）。
+- **点击跳转**：点击会话条 → `zcode:pet-bubble-open-session`（bubble→main，校验气泡窗口
+  sender 与 sessionId 形状）→ main 激活主窗口并广播 `zcode:pet-open-session`（main→应用
+  各主窗口）→ renderer（`useDesktopPetSessionOpener`）从任务缓存反查会话归属后调用既有
+  `handleSelectTask`（含跨 workspace tab 切换与未读清理）。不新增第二条跳转路径。
 - 数据流（单一写入路径，扩展一期状态上报，不新增第二份会话状态）：
 
 ```
 renderer（useDesktopPetStateDriver）
    ├─ 任务元数据缓存 taskMetaByEntityKey（status/未读/title/updatedAt）
-   └─ 行内 sidecar __zcodeSessionActivity.assistantPreview
-        （sessions-index 的 lastAssistantPreview ≤120 字，turn 收口时刷新；
-         侧栏不消费，避免列表行随逐 token 流换引用）
+   ├─ 行内 sidecar __zcodeSessionActivity.phase / assistantPreview
+   │    （sessions-index 投影；摘要 lastAssistantPreview ≤120 字，turn 收口刷新；
+   │     侧栏不消费摘要，避免列表行随逐 token 流换引用）
+   └─ tracked 集合（本窗口运行期间见过 running 的会话）
    → IPC zcode:pet-state（上报 {state, sessions[]}）
-   → main（按 reporter 保存活动，多窗口合并去重、取优先级最高状态，截断 3 条）
+   → main（按 reporter 保存活动，多窗口合并去重、过滤 dismissed、按优先级截断 3 条）
    → pet 窗口收 state（动画，语义不变）＋ bubble 窗口收 {state, sessions}
 ```
 
@@ -215,9 +232,11 @@ renderer（useDesktopPetStateDriver）
 2. 滑条设为 200% 时窗口不超出工作区（越界被夹取）；50% 时宠物仍可点击、拖动、右键。
 3. 多个会话同时运行时，气泡逐条列出每个会话（标题 + 最新助手回复摘要），最多 3 条；
    拖动宠物气泡跟随；条数变化时高度随之变化。
-4. 会话完成产生未读：气泡列出该会话（等待查看）；读完/清空未读后条目消失、全部清空后隐藏。
+4. **完成后保留**：会话完成（绿灯·已完成）或中断/失败（红灯）后条目仍在气泡里，
+   不会立即消失；点击该条跳转到对应会话（含跨 workspace 切换）后该条被移除；
+   同一会话重新运行后再次完成可重新出现。
 5. 多窗口/多会话同时上报时按优先级合并去重；助手完成一轮回复后气泡摘要随 sessions-index 刷新。
-6. 气泡不拦截鼠标：气泡覆盖区域可以正常点击下方窗口；气泡本身不可获得焦点。
+6. 点击会话条可从任意窗口把主窗激活并切到目标会话；气泡 hover 有高亮反馈。
 
 ## 范围
 

@@ -151,8 +151,9 @@ export function createDesktopPetBubbleWindow(deps: {
         nodeIntegration: false,
       },
     });
-    // 纯展示浮层：完全穿透鼠标，气泡覆盖区域仍可操作下方窗口。
-    win.setIgnoreMouseEvents(true);
+    // 会话条可点击（点击跳转到对应会话）：不再整窗穿透；
+    // 气泡尺寸小且只覆盖宠物旁一小块区域，交互优先级留给跳转。
+    // （历史语境：曾用 setIgnoreMouseEvents(true) 做纯展示浮层。）
 
     if (!deps.app.isPackaged && deps.rendererDevUrl) {
       void win.loadURL(`${deps.rendererDevUrl}/bubble.html`);

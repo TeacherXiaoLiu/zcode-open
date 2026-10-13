@@ -383,6 +383,10 @@ export const PlatformChannels = {
   PetGetActivity: "zcode:pet-get-activity",
   /** Main → Bubble：下发汇总活动（状态 + 会话标题）。 */
   DesktopPetActivity: "zcode:desktop-pet-activity",
+  /** Bubble → Main：点击会话条，跳转到该会话并从气泡移除（视为已处理）。 */
+  PetBubbleOpenSession: "zcode:pet-bubble-open-session",
+  /** Main → Renderer（应用主窗口）：打开指定会话（含跨 workspace 切换）。 */
+  PetOpenSession: "zcode:pet-open-session",
   /** Pet → Main：拖动开始（main 进入跟随光标移动循环）。 */
   PetDragStart: "zcode:pet-drag-start",
   /** Pet → Main：拖动结束；返回累计位移 movedPx（≤6px 视为点击，由 pet 窗口判定单击/双击）。 */
@@ -1326,6 +1330,14 @@ export interface PlatformChannelMap {
   };
   [PlatformChannels.DesktopPetActivity]: {
     request: DesktopPetBubblePayload;
+    response: void;
+  };
+  [PlatformChannels.PetBubbleOpenSession]: {
+    request: string;
+    response: void;
+  };
+  [PlatformChannels.PetOpenSession]: {
+    request: string;
     response: void;
   };
   [PlatformChannels.PetDragStart]: {

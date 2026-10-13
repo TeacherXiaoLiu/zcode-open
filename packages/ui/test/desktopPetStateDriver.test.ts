@@ -8,22 +8,28 @@ type TaskMeta = {
   unreadAt?: number;
   title?: string;
   updatedAt?: number;
-  __zcodeSessionActivity?: { assistantPreview?: string };
+  __zcodeSessionActivity?: { phase?: string; assistantPreview?: string };
 };
 
 function resolve(
   tasks: Record<string, TaskMeta>,
-  overlay: Record<string, number | null> = {},
-): { state: string; sessions: Array<{ sessionId: string; title: string; state: string; detail?: string }> } {
+  options: { overlay?: Record<string, number | null>; tracked?: string[] } = {},
+): {
+  state: string;
+  sessions: Array<{ sessionId: string; title: string; state: string; detail?: string }>;
+} {
   // 收敛函数只消费这几个字段；这里用最小形状驱动（类型由 hook 内部保证）。
   // entityKey 即任务行身份，补成 taskId 让会话 ID 断言可读。
   const withTaskIds = Object.fromEntries(
     Object.entries(tasks).map(([key, task]) => [key, { taskId: key, ...task }]),
   );
-  return resolveDesktopPetActivity({
-    taskMetaByEntityKey: withTaskIds as never,
-    taskUnreadOverlayByEntityKey: overlay as never,
-  });
+  return resolveDesktopPetActivity(
+    {
+      taskMetaByEntityKey: withTaskIds as never,
+      taskUnreadOverlayByEntityKey: (options.overlay ?? {}) as never,
+    },
+    new Set(options.tracked ?? []),
+  );
 }
 
 describe("resolveDesktopPetActivity", () => {
@@ -54,29 +60,63 @@ describe("resolveDesktopPetActivity", () => {
     ]);
   });
 
-  it("running 优先于未读；未读按 failed → review → waiting 排序（超出 3 条截断）", () => {
+  it("phase 区分完成与中断：completedSuccess → completed，completedInterrupted → interrupted", () => {
     const result = resolve({
-      a: { status: undefined, unreadAt: 1, title: "其他未读" },
-      b: { status: "completed", unreadAt: 1, title: "完成未读" },
-      c: { status: "error", unreadAt: 1, title: "出错未读" },
-      d: { status: "running", title: "运行中" },
+      a: {
+        status: "completed",
+        unreadAt: 1,
+        title: "成功完成",
+        __zcodeSessionActivity: { phase: "completedSuccess" },
+      },
+      b: {
+        status: "completed",
+        unreadAt: 1,
+        title: "被中断",
+        __zcodeSessionActivity: { phase: "completedInterrupted" },
+      },
     });
-    expect(result.state).toBe("running");
-    // 4 个会话，按优先级取前 3 条；waiting 被截断。
-    expect(result.sessions.map((s) => s.state)).toEqual(["running", "failed", "review"]);
-    expect(result.sessions.map((s) => s.title)).toEqual(["运行中", "出错未读", "完成未读"]);
+    // 中断优先于完成排前；动画取最高优先级（failed）。
+    expect(result.sessions.map((s) => s.state)).toEqual(["interrupted", "completed"]);
+    expect(result.state).toBe("failed");
   });
 
-  it("覆盖层：null 清读移除条目，数值覆盖 task.unreadAt", () => {
-    const tasks = { a: { status: "completed", unreadAt: 1, title: "A" } };
-    expect(resolve(tasks, { a: null })).toEqual({ state: "idle", sessions: [] });
-    expect(resolve({ a: { status: "completed", title: "A" } }, { a: 123 })).toMatchObject({
+  it("error → failed（红）；完成未读 → completed（绿）", () => {
+    expect(resolve({ a: { status: "error", unreadAt: 1, title: "E" } })).toMatchObject({
+      state: "failed",
+      sessions: [{ sessionId: "a", title: "E", state: "failed" }],
+    });
+    expect(resolve({ a: { status: "completed", unreadAt: 1, title: "C" } })).toMatchObject({
       state: "review",
-      sessions: [{ sessionId: "a", title: "A", state: "review" }],
+      sessions: [{ sessionId: "a", title: "C", state: "completed" }],
     });
   });
 
-  it("超过 3 条时截断，且截断保留优先级最高的一条所含状态", () => {
+  it("tracked 保留：本窗口跑过的会话完成后仍显示（即使已读）", () => {
+    const tasks = {
+      a: { status: "completed", title: "跑过的会话", updatedAt: 5 },
+      b: { status: "completed", title: "历史会话", updatedAt: 5 },
+    };
+    // 未 tracked：都不显示。
+    expect(resolve(tasks).sessions).toEqual([]);
+    // tracked 的显示，未 tracked 的不显示。
+    expect(resolve(tasks, { tracked: ["a"] }).sessions).toEqual([
+      { sessionId: "a", title: "跑过的会话", state: "completed" },
+    ]);
+  });
+
+  it("覆盖层：null 清读移除未读；tracked 的完成条目不受覆盖层影响", () => {
+    const tasks = { a: { status: "completed", unreadAt: 1, title: "A" } };
+    expect(resolve(tasks, { overlay: { a: null } })).toEqual({ state: "idle", sessions: [] });
+    expect(resolve(tasks, { overlay: { a: null }, tracked: ["a"] })).toMatchObject({
+      state: "review",
+      sessions: [{ sessionId: "a", state: "completed" }],
+    });
+    expect(resolve({ a: { status: "completed", title: "A" } }, { overlay: { a: 123 } })).toMatchObject(
+      { state: "review", sessions: [{ sessionId: "a", state: "completed" }] },
+    );
+  });
+
+  it("超过 3 条时截断，且截断保留优先级最高的状态", () => {
     const result = resolve({
       a: { status: "running", title: "1", updatedAt: 5 },
       b: { status: "running", title: "2", updatedAt: 4 },
@@ -103,11 +143,16 @@ describe("resolveDesktopPetActivity", () => {
       state: "running",
     });
     expect(
-      resolve({ a: { status: "running", title: "T", __zcodeSessionActivity: { assistantPreview: "  " } } })
-        .sessions[0]!.detail,
+      resolve({
+        a: { status: "running", title: "T", __zcodeSessionActivity: { assistantPreview: "  " } },
+      }).sessions[0]!.detail,
     ).toBeUndefined();
     const long = resolve({
-      a: { status: "running", title: "题".repeat(300), __zcodeSessionActivity: { assistantPreview: "摘".repeat(300) } },
+      a: {
+        status: "running",
+        title: "题".repeat(300),
+        __zcodeSessionActivity: { assistantPreview: "摘".repeat(300) },
+      },
     });
     expect(long.sessions[0]!.title).toHaveLength(200);
     expect(long.sessions[0]!.detail).toHaveLength(120);

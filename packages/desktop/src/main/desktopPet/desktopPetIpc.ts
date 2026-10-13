@@ -7,11 +7,12 @@ import type { DesktopPetLibrary } from "./desktopPetLibrary.js";
 import { petIdSchema } from "./desktopPetPackage.js";
 
 /** 会话活动上报（三期）：动画状态 + 气泡会话列表；标题/摘要截断上限对齐任务标题与 preview 量级。 */
+const sessionStateSchema = z.enum(["running", "completed", "interrupted", "failed", "waiting"]);
 const sessionActivitySchema = z
   .object({
     sessionId: z.string().min(1).max(128),
     title: z.string().max(200),
-    state: z.enum(["idle", "running", "waiting", "failed", "review"]),
+    state: sessionStateSchema,
     detail: z.string().max(200).optional(),
   })
   .strict();
@@ -38,6 +39,8 @@ const sourceSchema = z
   .object({ source: z.enum(["codex", "zcode", "mikiko", "directory", "archive"]) })
   .strict();
 const operationIdSchema = z.string().uuid();
+/** 气泡点击跳转的会话 ID（taskId/sessionId）。 */
+const sessionIdSchema = z.string().min(1).max(128);
 const importSchema = z
   .object({
     operationId: operationIdSchema,
@@ -118,11 +121,17 @@ export function registerDesktopPetIpc(options: {
     )
       library.cancelOperation(payload as string, event.sender.id);
   };
+  const onBubbleOpenSession = (event: IpcMainEvent, payload: unknown) => {
+    if (event.sender.isDestroyed() || !controller.ownsBubbleWebContents(event.sender.id)) return;
+    const parsed = sessionIdSchema.safeParse(payload);
+    if (parsed.success) controller.openSession(parsed.data);
+  };
   ipcMain.on(PlatformChannels.PetStateReport, onStateReport);
   ipcMain.on(PlatformChannels.PetDragStart, onDragStart);
   ipcMain.on(PlatformChannels.PetContextMenu, onContextMenu);
   ipcMain.on(PlatformChannels.PetOpenApp, onOpenApp);
   ipcMain.on(PlatformChannels.PetCancelOperation, onCancel);
+  ipcMain.on(PlatformChannels.PetBubbleOpenSession, onBubbleOpenSession);
   handle(PlatformChannels.PetDragEnd, (event) => {
     assertPet(event);
     return controller.endDrag();
@@ -177,5 +186,6 @@ export function registerDesktopPetIpc(options: {
     ipcMain.removeListener(PlatformChannels.PetContextMenu, onContextMenu);
     ipcMain.removeListener(PlatformChannels.PetOpenApp, onOpenApp);
     ipcMain.removeListener(PlatformChannels.PetCancelOperation, onCancel);
+    ipcMain.removeListener(PlatformChannels.PetBubbleOpenSession, onBubbleOpenSession);
   };
 }

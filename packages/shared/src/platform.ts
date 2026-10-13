@@ -101,6 +101,8 @@ export interface DesktopPetPlatformPort {
   cancelOperation(operationId: string): void;
   /** 订阅当前窗口发起操作的进度；返回 unsubscribe。 */
   onOperationProgress(callback: (progress: DesktopPetOperationProgress) => void): () => void;
+  /** 订阅 main 转发的"打开会话"请求（气泡点击）；返回 unsubscribe。 */
+  onOpenSession?(callback: (sessionId: string) => void): () => void;
   /** 切换当前宠物（main 持久化 desktopPetId 并热重建宠物窗口）。 */
   setActive(petId: string): Promise<void>;
 }

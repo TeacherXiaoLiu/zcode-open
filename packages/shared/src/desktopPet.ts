@@ -75,20 +75,55 @@ export function normalizeDesktopPetScale(value: unknown): number {
   return Math.round(clamped * 100) / 100;
 }
 
+/** 单条会话的展示状态（气泡条目 UI 与状态灯；与动画状态分离）。 */
+export type DesktopPetSessionState =
+  | "running"
+  | "completed"
+  | "interrupted"
+  | "failed"
+  | "waiting";
+
+/** 会话条目排序/优先级全序：运行中 > 中断 > 失败 > 完成 > 等待。 */
+export const DESKTOP_PET_SESSION_STATE_ORDER: DesktopPetSessionState[] = [
+  "running",
+  "interrupted",
+  "failed",
+  "completed",
+  "waiting",
+];
+
+/** 会话条目状态 → 宠物动画状态（汇总取最高优先级条目）。 */
+export function desktopPetSessionStateToAnimation(state: DesktopPetSessionState): DesktopPetState {
+  switch (state) {
+    case "running":
+      return "running";
+    case "interrupted":
+    case "failed":
+      return "failed";
+    case "completed":
+      return "review";
+    default:
+      return "waiting";
+  }
+}
+
 /** 单条会话汇报（气泡列表项）。 */
 export interface DesktopPetSessionActivity {
   sessionId: string;
   title: string;
-  state: DesktopPetState;
+  state: DesktopPetSessionState;
   /** 最新助手回复摘要（sessions-index 的 lastAssistantPreview，约 120 字）；尚无回复时缺省。 */
   detail?: string;
 }
 
 /** renderer 上报 / main 汇总的会话活动：动画汇总状态 + 气泡列表。 */
 export interface DesktopPetActivity {
-  /** 宠物动画的汇总状态：所有会话取最高优先级（DESKTOP_PET_STATE_PRIORITY 顺序）。 */
+  /** 宠物动画的汇总状态：由 sessions 的最高优先级条目推导（renderer 与 main 共用映射）。 */
   state: DesktopPetState;
-  /** 气泡会话列表：running 优先、同优先级按活动时间倒序；renderer 截断到 3 条。 */
+  /**
+   * 气泡会话列表：运行中与未读会话，以及本窗口运行期间追踪过的完成/失败会话
+   * （点击跳转后由 main 移除该条）；renderer 截断到 3 条。
+   */
   sessions: DesktopPetSessionActivity[];
 }
 

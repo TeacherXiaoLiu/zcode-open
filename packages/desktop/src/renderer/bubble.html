@@ -47,6 +47,13 @@
         display: flex;
         align-items: flex-start;
         gap: 8px;
+        padding: 2px 4px;
+        margin: -2px -4px;
+        border-radius: 6px;
+        cursor: pointer;
+      }
+      .row:hover {
+        background: rgba(255, 255, 255, 0.08);
       }
       .dot {
         width: 8px;
@@ -56,14 +63,16 @@
         background: #8b8b93;
         flex: none;
       }
+      /* 状态灯：运行中蓝、已完成绿、中断/失败红、等待灰。 */
       .row[data-state="running"] .dot {
         background: #4c8dff;
       }
+      .row[data-state="completed"] .dot {
+        background: #3fb950;
+      }
+      .row[data-state="interrupted"] .dot,
       .row[data-state="failed"] .dot {
         background: #ff5d5d;
-      }
-      .row[data-state="review"] .dot {
-        background: #f5a524;
       }
       .body {
         min-width: 0;
@@ -101,6 +110,9 @@
           background: rgba(255, 255, 255, 0.95);
           color: #1c1c1f;
           box-shadow: 0 6px 24px rgba(0, 0, 0, 0.18);
+        }
+        .row:hover {
+          background: rgba(0, 0, 0, 0.06);
         }
       }
     </style>

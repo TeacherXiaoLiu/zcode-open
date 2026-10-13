@@ -66,6 +66,7 @@ import { resolveAppWorkspaceRpcTarget } from "@/app-shell/workspaceRpcTarget.js"
 import { useWorkspaceServicesResolution } from "@/hooks/useWorkspaceServices.js";
 import { useWorkspaceTerminalTaskNotifications } from "@/hooks/useTaskNotifications.js";
 import { useDesktopPetStateDriver } from "@/hooks/useDesktopPetStateDriver.js";
+import { useDesktopPetSessionOpener } from "@/hooks/useDesktopPetSessionOpener.js";
 import { useMarketingTaskCompletionRefresh } from "@/components/marketing-touch/useMarketingTaskCompletionRefresh.js";
 import { useOffPeakTaskNotifications } from "@/hooks/useOffPeakTaskNotifications.js";
 import type { AppProps, WorkspaceMainView } from "@/app-shell/types.js";
@@ -923,6 +924,16 @@ export function App({
     onNavigateToAutomations: handleNavigateToAutomationsMain,
     onNavigateToPluginStore: handleNavigateToPluginStoreMain,
   });
+  // 桌宠汇报气泡点击 → main → 打开对应会话（本地定制，specs/desktop/desktop-pet.md）：
+  // 复用 handleSelectTask 的跨 workspace 导航与未读清理，不新增第二条跳转路径。
+  useDesktopPetSessionOpener(
+    useCallback(
+      ({ workspacePath, taskId, workspaceIdentity: targetIdentity }) => {
+        handleSelectTask(workspacePath, taskId, targetIdentity);
+      },
+      [handleSelectTask],
+    ),
+  );
   // 完成卡「已保存」芯片的落点（docs/dynamic-workflow/transcript-and-notifications.md「Saving the
   // run, and running it again」）：走「自动化」入口的同一条导航（进历史、切主视图），落在「工作流」
   // 标签，再由深链把中枢定位到那一页。项目档按 workspaceKey 找组，全局档只要名字。

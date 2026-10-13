@@ -779,6 +779,12 @@ contextBridge.exposeInMainWorld("zcode", {
   /** 上报本窗口会话活动（状态 + 最相关会话标题；多窗口由 main 汇总）。 */
   desktopPetReportActivity: (activity: DesktopPetActivity): void =>
     ipcRenderer.send(PlatformChannels.PetStateReport, activity),
+  /** 订阅 main 转发的"打开会话"请求（桌宠气泡点击）；返回 unsubscribe。 */
+  onDesktopPetOpenSession: (callback: (sessionId: string) => void): (() => void) => {
+    const listener = (_event: unknown, sessionId: string) => callback(sessionId);
+    ipcRenderer.on(PlatformChannels.PetOpenSession, listener);
+    return () => ipcRenderer.removeListener(PlatformChannels.PetOpenSession, listener);
+  },
   /** 列出本地宠物目录（设置页切换列表）。 */
   desktopPetListInstalled: (): Promise<DesktopPetInstalledInfo[]> =>
     ipcRenderer.invoke(PlatformChannels.PetListInstalled),

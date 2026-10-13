@@ -3,7 +3,6 @@ import type { BrowserWindow, MenuItemConstructorOptions, Rectangle } from "elect
 import {
   DESKTOP_PET_ATLAS,
   DESKTOP_PET_SCALE_DEFAULT,
-  DESKTOP_PET_STATE_PRIORITY,
   PlatformChannels,
   desktopMenuMessageIds,
   getDesktopMenuMessage,
@@ -13,10 +12,10 @@ import {
   type DesktopPetActivity,
   type DesktopPetBubblePayload,
   type DesktopPetManifest,
-  type DesktopPetSessionActivity,
   type DesktopPetState,
   type Locale,
 } from "@zcode/shared";
+import { resolveEffectiveActivity } from "./desktopPetActivity.js";
 import {
   DESKTOP_PET_SPRITESHEET_FILE,
   ensureBundledDesktopPetsInstalled,
@@ -72,6 +71,8 @@ export interface DesktopPetControllerDeps {
   setEnabled: (enabled: boolean) => void;
   /** 双击宠物/菜单"打开 ZCode"：激活主窗口。 */
   openMainWindow: () => void;
+  /** 气泡点击会话条：把"打开会话"请求转发给应用主窗口（跨 workspace 导航由 renderer 完成）。 */
+  openSession: (sessionId: string) => void;
   getLocale: () => Locale;
 }
 
@@ -86,6 +87,8 @@ export interface DesktopPetController {
   releaseReporter(reporterId: number): void;
   /** 气泡窗口拉取当前汇总活动（getActivity IPC 的应答）。 */
   getBubblePayload(): DesktopPetBubblePayload;
+  /** 气泡点击会话条：移除该条（视为已处理）并请求主窗口跳转到对应会话。 */
+  openSession(sessionId: string): void;
   /** 当前活动宠物 ID（删除安全检查用）。 */
   getActivePetId(): string | undefined;
   /** 切换当前宠物（设置页/右键菜单）：持久化 + 热重建窗口。 */
@@ -110,6 +113,8 @@ export function createDesktopPetController(deps: DesktopPetControllerDeps): Desk
   let scale = DESKTOP_PET_SCALE_DEFAULT;
   let window: DesktopPetWindowHandle | null = null;
   const stateByReporter = new Map<number, DesktopPetActivity>();
+  /** 用户点击跳转过的会话：从气泡移除（视为已处理）；重新运行时会话会清除该标记。 */
+  const dismissedSessions = new Set<string>();
   let lastPushedState: DesktopPetState | undefined;
   let lastBubbleKey: string | undefined;
   const bubble: DesktopPetBubbleHandle | null = deps.createBubbleWindow
@@ -146,36 +151,7 @@ export function createDesktopPetController(deps: DesktopPetControllerDeps): Desk
   }
 
   function effectiveActivity(): DesktopPetActivity {
-    const merged: DesktopPetSessionActivity[] = [];
-    const seen = new Set<string>();
-    let bestIndex = DESKTOP_PET_STATE_PRIORITY.length - 1;
-    for (const activity of stateByReporter.values()) {
-      for (const session of activity.sessions) {
-        const index = DESKTOP_PET_STATE_PRIORITY.indexOf(session.state);
-        if (index < 0) {
-          continue;
-        }
-        if (index < bestIndex) {
-          bestIndex = index;
-        }
-        // 多窗口上报合并：同 session 只保留先到的一条（renderer 侧已按优先级排序）。
-        if (seen.has(session.sessionId)) {
-          continue;
-        }
-        seen.add(session.sessionId);
-        merged.push(session);
-      }
-    }
-    // 稳定排序：renderer 已按 (优先级, 活动时间) 排好；这里只按优先级归并多窗口来源。
-    merged.sort(
-      (left, right) =>
-        DESKTOP_PET_STATE_PRIORITY.indexOf(left.state) -
-        DESKTOP_PET_STATE_PRIORITY.indexOf(right.state),
-    );
-    return {
-      state: DESKTOP_PET_STATE_PRIORITY[bestIndex] ?? "idle",
-      sessions: merged.slice(0, MAX_BUBBLE_SESSIONS),
-    };
+    return resolveEffectiveActivity(stateByReporter.values(), dismissedSessions, MAX_BUBBLE_SESSIONS);
   }
 
   function pushActivity(force = false): void {
@@ -414,6 +390,12 @@ export function createDesktopPetController(deps: DesktopPetControllerDeps): Desk
       if (disposed) {
         return;
       }
+      for (const session of activity.sessions) {
+        // 会话重新跑起来 → 清除"已处理"标记，完成后可以再次提醒。
+        if (session.state === "running") {
+          dismissedSessions.delete(session.sessionId);
+        }
+      }
       const previous = stateByReporter.get(reporterId);
       if (previous && JSON.stringify(previous.sessions) === JSON.stringify(activity.sessions)) {
         return;
@@ -431,6 +413,16 @@ export function createDesktopPetController(deps: DesktopPetControllerDeps): Desk
     },
     getBubblePayload() {
       return { activity: effectiveActivity(), locale: deps.getLocale() };
+    },
+    openSession(sessionId) {
+      if (disposed) {
+        return;
+      }
+      dismissedSessions.add(sessionId);
+      // 先激活主窗口再转发跳转请求：气泡点击时主窗可能最小化或被盖住。
+      deps.openMainWindow();
+      deps.openSession(sessionId);
+      pushActivity();
     },
     getActivePetId: () => activePetId,
     switchActivePet,
@@ -457,6 +449,7 @@ export function createDesktopPetController(deps: DesktopPetControllerDeps): Desk
       enabled = false;
       destroyWindow();
       stateByReporter.clear();
+      dismissedSessions.clear();
     },
   };
 }

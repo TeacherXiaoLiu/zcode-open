@@ -96,6 +96,8 @@ function createController() {
   const petWindows: Array<ReturnType<typeof petWindowMock>> = [];
   const bubbleWindows: Array<ReturnType<typeof bubbleWindowMock>> = [];
   const persistPosition = vi.fn();
+  const openMainWindow = vi.fn();
+  const openSession = vi.fn();
   const controller = createDesktopPetController({
     petsRootDir: "C:\\pets",
     bundledPetsDir: "C:\\bundled",
@@ -112,10 +114,11 @@ function createController() {
     persistPosition,
     persistActivePetId: vi.fn(async () => undefined),
     setEnabled: vi.fn(),
-    openMainWindow: vi.fn(),
+    openMainWindow,
+    openSession,
     getLocale: () => "zh-CN",
   });
-  return { controller, petWindows, bubbleWindows, persistPosition };
+  return { controller, petWindows, bubbleWindows, persistPosition, openMainWindow, openSession };
 }
 
 beforeEach(() => {
@@ -221,7 +224,7 @@ describe("桌宠控制器活动汇总", () => {
       {
         state: "review",
         sessions: [
-          { sessionId: "r1", title: "待查看会话", state: "review", detail: "结果已就绪" },
+          { sessionId: "r1", title: "已完成会话", state: "completed", detail: "结果已就绪" },
         ],
       },
       22,
@@ -237,7 +240,7 @@ describe("桌宠控制器活动汇总", () => {
           { sessionId: "s1", title: "运行中会话", state: "running", detail: "正在处理" },
           { sessionId: "s2", title: "第二个", state: "running" },
           { sessionId: "s3", title: "第三个", state: "running" },
-          { sessionId: "r1", title: "重复会话", state: "review" },
+          { sessionId: "r1", title: "重复会话", state: "completed" },
         ],
       },
       33,
@@ -250,9 +253,81 @@ describe("桌宠控制器活动汇总", () => {
       activity: { state: string; sessions: Array<{ sessionId: string }> };
     };
     expect(payload.activity.state).toBe("running");
-    // 合并 window 22 的 review 与会话 33 的 running 列表，去重后按优先级排：
-    // running 三条在前（renderer 顺序保持），review 的 r1 去重后不重复。
+    // 合并 window 22 的完成条目与会话 33 的运行列表，去重截断后 running 三条在前。
     expect(payload.activity.sessions.map((s) => s.sessionId)).toEqual(["s1", "s2", "s3"]);
+  });
+
+  it("completed/interrupted/failed 会话保留显示，动画由最高优先级条目推导", () => {
+    const { controller, petWindows, bubbleWindows } = createController();
+    controller.applySettings({ desktopPetEnabled: true });
+    petWindows[0]!.fireReady();
+    bubbleWindows[0]!.fireReady();
+    controller.reportActivity(
+      {
+        state: "review",
+        sessions: [
+          { sessionId: "c1", title: "完成的会话", state: "completed" },
+          { sessionId: "i1", title: "中断的会话", state: "interrupted" },
+          { sessionId: "f1", title: "失败的会话", state: "failed" },
+        ],
+      },
+      11,
+    );
+    // 中断 > 失败 > 完成：动画取最高优先级（failed）。
+    expect(petWindows[0]!.handle.send).toHaveBeenLastCalledWith(
+      PlatformChannels.DesktopPetState,
+      "failed",
+    );
+    const payload = controller.getBubblePayload();
+    expect(payload.activity.sessions.map((s) => s.state)).toEqual([
+      "interrupted",
+      "failed",
+      "completed",
+    ]);
+  });
+
+  it("点击会话条：从气泡移除该条（视为已处理）并请求主窗口跳转", () => {
+    const { controller, petWindows, bubbleWindows, openMainWindow, openSession } = createController();
+    controller.applySettings({ desktopPetEnabled: true });
+    petWindows[0]!.fireReady();
+    bubbleWindows[0]!.fireReady();
+    controller.reportActivity(
+      {
+        state: "review",
+        sessions: [
+          { sessionId: "c1", title: "完成的会话", state: "completed" },
+          { sessionId: "c2", title: "另一个", state: "completed" },
+        ],
+      },
+      11,
+    );
+    controller.openSession("c1");
+    expect(openMainWindow).toHaveBeenCalledOnce();
+    expect(openSession).toHaveBeenCalledWith("c1");
+    expect(controller.getBubblePayload().activity.sessions.map((s) => s.sessionId)).toEqual(["c2"]);
+    // 再点掉最后一条：气泡活动回到 idle，触发隐藏。
+    controller.openSession("c2");
+    expect(controller.getBubblePayload()).toMatchObject({
+      activity: { state: "idle", sessions: [] },
+    });
+  });
+
+  it("已处理的会话重新运行后清除标记，可再次出现在气泡", () => {
+    const { controller, petWindows, bubbleWindows } = createController();
+    controller.applySettings({ desktopPetEnabled: true });
+    petWindows[0]!.fireReady();
+    bubbleWindows[0]!.fireReady();
+    controller.reportActivity(
+      { state: "review", sessions: [{ sessionId: "s1", title: "任务", state: "completed" }] },
+      11,
+    );
+    controller.openSession("s1");
+    expect(controller.getBubblePayload().activity.sessions).toEqual([]);
+    controller.reportActivity(
+      { state: "running", sessions: [{ sessionId: "s1", title: "任务", state: "running" }] },
+      11,
+    );
+    expect(controller.getBubblePayload().activity.sessions).toHaveLength(1);
   });
 
   it("汇总回到 idle：气泡隐藏，动画回 idle", () => {
