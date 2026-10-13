@@ -246,7 +246,11 @@ const PACKAGING_PRUNE_PATTERNS = [
 
 function buildDesktopArtifactName(platformName, extension = "${ext}") {
   // 测试环境产物必须和正式安装包文件名区分，避免上传、下载或人工验收时混用。
-  return `\${productName}-\${version}-${platformName}-\${arch}${desktopArtifactEnvSuffix}.${extension}`;
+  // 文件名前缀不用 ${productName}：它含空格，GitHub Release 上传时会自动把空格替换成点，
+  // 导致 latest.yml 里的相对 url 与实际资产名不一致、客户端更新下载 404。
+  // 固定用连字符形式（ZCode / ZCode-Preview）保证各平台托管处文件名稳定。
+  const artifactProductName = desktopProductIdentity.productName.replaceAll(" ", "-");
+  return `${artifactProductName}-\${version}-${platformName}-\${arch}${desktopArtifactEnvSuffix}.${extension}`;
 }
 
 function runAsarCommand(args) {
