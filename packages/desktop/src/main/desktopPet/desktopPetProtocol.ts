@@ -44,9 +44,15 @@ export function installDesktopPetPackProtocol(
   protocol: DesktopPetPackProtocol,
   options: { petsRootDir: string },
 ): void {
-  const normalizedRoot = safeRealpath(options.petsRootDir);
   protocol.registerFileProtocol(DESKTOP_PET_PACK_SCHEME, (request, callback) => {
     try {
+      // pets 根目录可能晚于协议安装才创建（首次启用时铺内置宠物），
+      // realpath 必须按每次请求惰性解析：安装时缓存 null 会让所有请求永久 404。
+      const normalizedRoot = safeRealpath(options.petsRootDir);
+      if (!normalizedRoot) {
+        callback({ error: NET_ERR_FILE_NOT_FOUND });
+        return;
+      }
       const url = new URL(request.url);
       const petId = url.hostname;
       if (!DESKTOP_PET_ID_PATTERN.test(petId)) {
@@ -60,7 +66,7 @@ export function installDesktopPetPackProtocol(
       const target = safeRealpath(
         join(options.petsRootDir, petId, DESKTOP_PET_SPRITESHEET_FILE),
       );
-      if (!target || !normalizedRoot || !target.startsWith(normalizedRoot + sep)) {
+      if (!target || !target.startsWith(normalizedRoot + sep)) {
         callback({ error: NET_ERR_FILE_NOT_FOUND });
         return;
       }
