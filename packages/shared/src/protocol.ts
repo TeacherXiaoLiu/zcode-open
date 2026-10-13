@@ -352,6 +352,15 @@ export interface AppSettings {
   /** 新建或冷恢复 Session 是否启用 Memory；默认关闭。 */
   memoryEnabled?: boolean;
   /**
+   * 桌面宠物（本地定制，specs/desktop/desktop-pet.md）：总开关；默认关。
+   * 仅桌面端消费，Web/手机忽略。
+   */
+  desktopPetEnabled?: boolean;
+  /** 当前桌面宠物 id（~/.zcode/v2/pets/<id>）；缺省 = 目录内第一个可用宠物。 */
+  desktopPetId?: string;
+  /** 桌宠窗口位置；缺省 = 主显示器右下角。拖动结束后由 main 写回。 */
+  desktopPetPosition?: { x: number; y: number };
+  /**
    * 会话标题自动刷新（本地定制，specs/session-title-auto-refresh.md）：
    * 真实用户轮次完成时按绝对轮次网格重新生成标题的总开关；默认开启。
    * 三个字段分开存储而非嵌套对象：设置补丁是浅合并，单字段提交不会重置其余值。

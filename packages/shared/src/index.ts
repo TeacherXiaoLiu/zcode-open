@@ -125,6 +125,7 @@ export interface ICredentialStore {
 export * from "./test-ids.js";
 export * from "./test-ids-workflow.js";
 export * from "./channels.js";
+export * from "./desktopPet.js";
 export * from "./storage.js";
 export * from "./oauth.js";
 export * from "./desktopMenu.js";

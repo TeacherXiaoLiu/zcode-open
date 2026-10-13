@@ -2641,6 +2641,13 @@ const enUS: Record<string, string> = {
   "settings.sessionTitleRefresh.rule": "Refresh every {interval} rounds, starting from round {firstRound}",
   "settings.sessionTitleRefresh.ruleDisabled": "Disabled (initial title generation only)",
   "settings.sessionTitleRefresh.saveError": "Could not update session title refresh settings",
+  "settings.desktopPet": "Desktop pet",
+  "settings.desktopPet.description":
+    "A floating pet on your desktop that mirrors session states in real time: running while a session works, alerting you to unread failures or finished results. Drag to move; right-click to switch pets or hide.",
+  "settings.desktopPet.activePet": "Active pet",
+  "settings.desktopPet.activePetDescription":
+    "Read from ~/.zcode/v2/pets; interoperable with Mikiko / Codex pet packs — copying the folder is enough.",
+  "settings.desktopPet.saveError": "Could not update desktop pet settings",
   "settings.dataBaseDir": "Data storage path",
   "settings.dataBaseDirDescription":
     "Root directory for app data (defaults to user home directory). Existing data will be copied to the new location. The .zcode/v2 suffix cannot be changed.",

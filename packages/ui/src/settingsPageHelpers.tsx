@@ -33,6 +33,7 @@ import { useOptionalServices } from "@/hooks/useServices.js";
 import { ProactiveSuggestionsSetting } from "@/settings/ProactiveSuggestionsSetting.js";
 import { DynamicWorkflowModeSetting } from "@/settings/DynamicWorkflowModeSetting.js";
 import { SessionTitleRefreshSetting } from "@/settings/SessionTitleRefreshSetting.js";
+import { DesktopPetSetting } from "@/settings/DesktopPetSetting.js";
 import { normalizeInterfaceMode, type InterfaceMode } from "@/lib/interfaceMode.js";
 import {
   createSettingsPageConfig,
@@ -839,6 +840,13 @@ export function GeneralSectionContent({
       {hasServices ? (
         <SettingsGroupCard>
           <SessionTitleRefreshSetting />
+        </SettingsGroupCard>
+      ) : null}
+
+      {/* 定制（本地分支）：桌面宠物（仅桌面端）；规则见 specs/desktop/desktop-pet.md。 */}
+      {isDesktop ? (
+        <SettingsGroupCard>
+          <DesktopPetSetting />
         </SettingsGroupCard>
       ) : null}
 

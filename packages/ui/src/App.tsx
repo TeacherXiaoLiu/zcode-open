@@ -65,6 +65,7 @@ import { useTaskSidePaneMemoryBridge } from "@/app-shell/useTaskSidePaneMemoryBr
 import { resolveAppWorkspaceRpcTarget } from "@/app-shell/workspaceRpcTarget.js";
 import { useWorkspaceServicesResolution } from "@/hooks/useWorkspaceServices.js";
 import { useWorkspaceTerminalTaskNotifications } from "@/hooks/useTaskNotifications.js";
+import { useDesktopPetStateDriver } from "@/hooks/useDesktopPetStateDriver.js";
 import { useMarketingTaskCompletionRefresh } from "@/components/marketing-touch/useMarketingTaskCompletionRefresh.js";
 import { useOffPeakTaskNotifications } from "@/hooks/useOffPeakTaskNotifications.js";
 import type { AppProps, WorkspaceMainView } from "@/app-shell/types.js";
@@ -298,6 +299,9 @@ export function App({
     platform,
     formatMessage: intl.formatMessage,
   });
+  // 桌面宠物状态驱动（本地定制，specs/desktop/desktop-pet.md）：会话状态 → 宠物动画；
+  // 非桌面端 platform.desktopPet 缺失时整体不生效。
+  useDesktopPetStateDriver();
   // 闲时任务终态/等确认通知：仅桌面本地链路，main 进程按 status:taskId 去重多窗口重复。
   useOffPeakTaskNotifications({
     offPeakTaskService: services.offPeakTaskService,

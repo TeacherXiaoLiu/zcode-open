@@ -82,6 +82,12 @@ import type {
   OpenCuaPermissionOnboardingOptions,
   PrepareCuaHelperPermissionDragResult,
 } from "./cuaAccessibilitySettings.js";
+import type {
+  DesktopPetActivePayload,
+  DesktopPetDragDirection,
+  DesktopPetInstalledInfo,
+  DesktopPetState,
+} from "./desktopPet.js";
 
 // ============================================================================
 // RPC 服务频道 —— 通过 ChannelServer/ChannelClient 传输
@@ -360,6 +366,27 @@ export const PlatformChannels = {
    * 立刻消失可能打断正在进行的拖拽。
    */
   NotifyCuaHelperPermissionDragEnded: "zcode:notify-cua-helper-permission-drag-ended",
+  // ── 桌面宠物（本地定制，specs/desktop/desktop-pet.md）─────────────────────
+  /** Pet → Main：读取当前激活宠物（pet.json 归一结果 + petpack:// 精灵表 URL + 初始状态）。 */
+  PetGetActive: "zcode:pet-get-active",
+  /** Renderer → Main：上报本窗口会话聚合状态（running/waiting/failed/review/idle）。 */
+  PetStateReport: "zcode:pet-state",
+  /** Main → Pet：下发状态动画（waving 为 one-shot，由 pet 窗口 3.2s 后回退）。 */
+  DesktopPetState: "zcode:desktop-pet-state",
+  /** Pet → Main：拖动开始（main 进入跟随光标移动循环）。 */
+  PetDragStart: "zcode:pet-drag-start",
+  /** Pet → Main：拖动结束；返回累计位移 movedPx（≤6px 视为点击，由 pet 窗口判定单击/双击）。 */
+  PetDragEnd: "zcode:pet-drag-end",
+  /** Main → Pet：拖动方向动画（running-left / running-right / running）。 */
+  DesktopPetDragDirection: "zcode:desktop-pet-drag-direction",
+  /** Pet → Main：右键菜单（切换宠物 / 设置 / 隐藏，原生菜单由 main 弹出）。 */
+  PetContextMenu: "zcode:pet-context-menu",
+  /** Pet → Main：双击（点击判定由 pet 窗口完成）打开主窗口。 */
+  PetOpenApp: "zcode:pet-open-app",
+  /** Renderer（设置页）→ Main：列出本地宠物目录（pets 根下通过校验的宠物信息）。 */
+  PetListInstalled: "zcode:pet-list-installed",
+  /** Renderer（设置页）→ Main：切换当前宠物（写 desktopPetId 并热切换窗口内容）。 */
+  PetSetActive: "zcode:pet-set-active",
   /** Renderer → Main：上报 OAuth state 用于 deep link 路由 */
   OAuthRegisterState: "zcode:oauth-register-state",
   /** Main → Renderer：转发 deep link URL */
@@ -1255,6 +1282,47 @@ export interface PlatformChannelMap {
     response: {
       runningAgentSessionCount: number;
     };
+  };
+  // ── 桌面宠物（本地定制，specs/desktop/desktop-pet.md）─────────────────────
+  [PlatformChannels.PetGetActive]: {
+    request: void;
+    response: DesktopPetActivePayload | undefined;
+  };
+  [PlatformChannels.PetStateReport]: {
+    request: DesktopPetState;
+    response: void;
+  };
+  [PlatformChannels.DesktopPetState]: {
+    request: DesktopPetState | "waving";
+    response: void;
+  };
+  [PlatformChannels.PetDragStart]: {
+    request: void;
+    response: void;
+  };
+  [PlatformChannels.PetDragEnd]: {
+    request: void;
+    response: { movedPx: number };
+  };
+  [PlatformChannels.DesktopPetDragDirection]: {
+    request: DesktopPetDragDirection;
+    response: void;
+  };
+  [PlatformChannels.PetContextMenu]: {
+    request: void;
+    response: void;
+  };
+  [PlatformChannels.PetOpenApp]: {
+    request: void;
+    response: void;
+  };
+  [PlatformChannels.PetListInstalled]: {
+    request: void;
+    response: DesktopPetInstalledInfo[];
+  };
+  [PlatformChannels.PetSetActive]: {
+    request: string;
+    response: void;
   };
   [PlatformChannels.GetDesktopZoomLevel]: {
     request: void;

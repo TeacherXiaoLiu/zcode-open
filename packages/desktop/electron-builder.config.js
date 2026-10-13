@@ -602,6 +602,8 @@ export default {
   files: [
     "out/**/*",
     "package.json",
+    // 内置桌面宠物资产（MIT，specs/desktop/desktop-pet.md）：main 以 out/main → ../../resources/pets 定位。
+    "resources/pets/**/*",
     // app.asar 会把桌面端运行时 node_modules 一并打进去，依赖包自带的 .map / README
     // 默认也会原样进入安装包。这里统一在主包层做一次裁剪，只移除非运行时文件，LICENSE 继续保留。
     ...PACKAGING_PRUNE_PATTERNS,

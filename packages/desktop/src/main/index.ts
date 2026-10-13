@@ -273,8 +273,22 @@ import {
   getPluginSandboxHost,
   installPluginSandboxHost,
 } from "./pluginSandbox/index.js";
+import { resolveDesktopPetsRootDir } from "./desktopPet/desktopPetCatalog.js";
+import {
+  createDesktopPetController,
+  type DesktopPetController,
+} from "./desktopPet/desktopPetController.js";
+import { registerDesktopPetIpc } from "./desktopPet/desktopPetIpc.js";
+import { createDesktopPetWindow } from "./desktopPet/desktopPetWindow.js";
+import {
+  DESKTOP_PET_PACK_PRIVILEGED_SCHEME,
+  installDesktopPetPackProtocol,
+} from "./desktopPet/desktopPetProtocol.js";
 
-registerLocalMediaPreviewScheme(protocol, [PLUGIN_SANDBOX_PRIVILEGED_SCHEME]);
+registerLocalMediaPreviewScheme(protocol, [
+  PLUGIN_SANDBOX_PRIVILEGED_SCHEME,
+  DESKTOP_PET_PACK_PRIVILEGED_SCHEME,
+]);
 const localMediaPreviewPathRegistry = createLocalMediaPreviewPathRegistry();
 
 // e2e 由 Chromedriver 管理远程调试端口；如果这里继续固定到 9229，
@@ -700,6 +714,9 @@ const webRemoteControlManagerRef = {
   current: null as ReturnType<typeof createWebRemoteControlManager> | null,
 };
 let updateStatusWindow: BrowserWindow | null = null;
+// 桌面宠物（本地定制，specs/desktop/desktop-pet.md）：窗口生命周期控制器与 IPC 反注册句柄。
+let desktopPetController: DesktopPetController | undefined;
+let disposeDesktopPetIpc: (() => void) | undefined;
 const UPDATE_STATUS_WINDOW_WIDTH = 512;
 const UPDATE_STATUS_WINDOW_COMPACT_HEIGHT = 205;
 const UPDATE_STATUS_WINDOW_PROGRESS_HEIGHT = 224;
@@ -1112,6 +1129,16 @@ function syncImmediateAppSettings(patch: Partial<AppSettings>) {
       }
     }
   }
+
+  // 桌面宠物（本地定制）：开关/宠物/位置都经同一条 applySettings 路径，
+  // 与启动装配的初始快照共用（controllers 未装配时静默跳过）。
+  if (
+    patch.desktopPetEnabled !== undefined ||
+    patch.desktopPetId !== undefined ||
+    patch.desktopPetPosition !== undefined
+  ) {
+    desktopPetController?.applySettings(patch);
+  }
 }
 
 async function getAutoUpdatePreferences() {
@@ -1157,6 +1184,10 @@ async function prepareAppQuit(reason: string, kind: AppShutdownKind = "normal"):
   markForceQuit(reason);
   windowsCuaOperationIndicator.dispose();
   browserScreenshotSurfaceCoordinator.dispose();
+  desktopPetController?.dispose();
+  desktopPetController = undefined;
+  disposeDesktopPetIpc?.();
+  disposeDesktopPetIpc = undefined;
   // Bug 根因：资源样本改为 5 分钟窗口后，退出仍直接 stop 会清空未满窗口的数据。
   // 退出时只排空已存在的角色 / Agent 内存窗口，不启动新采样、目录扫描或外部探针。
   stopDesktopResourceTelemetry({ flushPendingWindows: true });
@@ -1596,7 +1627,12 @@ function resolveFocusedDesktopZoomLevel(): number {
 
 function getApplicationWindowsExcludingCuaIndicator(): BrowserWindow[] {
   return BrowserWindow.getAllWindows().filter(
-    (win) => !win.isDestroyed() && !windowsCuaOperationIndicator.ownsWindow(win),
+    (win) =>
+      !win.isDestroyed() &&
+      !windowsCuaOperationIndicator.ownsWindow(win) &&
+      // 桌宠浮窗与 CUA 指示条同类：不属于「应用主窗」集合（close-to-tray/单实例聚焦/
+      // last-window 判断都不得把它当主窗）。
+      !desktopPetController?.ownsWindow(win),
   );
 }
 
@@ -2157,6 +2193,76 @@ app.whenReady().then(async () => {
     reconcileKeepAwakeBlocker();
   } catch {
     // 读取失败不影响启动，使用默认 homedir
+  }
+
+  // 桌面宠物（本地定制，specs/desktop/desktop-pet.md）：petpack 协议 + 浮动窗控制器 + IPC。
+  // 必须在 bootstrap 设置读取之后装配（宠物目录跟随 dataBaseDir 的 setDataBaseDir）。
+  const desktopPetsRootDir = resolveDesktopPetsRootDir();
+  installDesktopPetPackProtocol(session.defaultSession.protocol, {
+    petsRootDir: desktopPetsRootDir,
+  });
+  desktopPetController = createDesktopPetController({
+    logger: {
+      info: (message, meta) => logger.info(message, meta),
+      warn: (message, meta) => logger.warn(message, meta),
+    },
+    petsRootDir: desktopPetsRootDir,
+    // 随包分发的内置宠物（MIT 资产）：out/main → ../../resources/pets（dev 与打包态一致）。
+    bundledPetsDir: join(import.meta.dirname, "../../resources/pets"),
+    createWindow: createDesktopPetWindow({
+      BrowserWindow,
+      app,
+      preloadPath: join(import.meta.dirname, "../preload/desktopPet.cjs"),
+      rendererDir: join(import.meta.dirname, "../renderer"),
+      rendererDevUrl: process.env["ELECTRON_RENDERER_URL"],
+    }),
+    persistPosition: (position) => {
+      void mainSettingService
+        .update({ desktopPetPosition: position })
+        .catch((error) => logger.warn("[desktop-pet] persist position failed:", error));
+    },
+    persistActivePetId: (petId) => {
+      void mainSettingService
+        .update({ desktopPetId: petId })
+        .catch((error) => logger.warn("[desktop-pet] persist active pet failed:", error));
+    },
+    setEnabled: (enabled) => {
+      void mainSettingService
+        .update({ desktopPetEnabled: enabled })
+        .catch((error) => logger.warn("[desktop-pet] persist enabled failed:", error));
+      syncImmediateAppSettings({ desktopPetEnabled: enabled });
+      // 设置页的快照跟随（右键"隐藏桌宠"不经 renderer 的 useSettings.update 通道）。
+      for (const win of getApplicationWindowsExcludingCuaIndicator()) {
+        if (!win.isDestroyed()) {
+          win.webContents.send(PlatformChannels.SettingsChanged);
+        }
+      }
+    },
+    openMainWindow: () => {
+      const win = getMainApplicationWindows()[0];
+      if (!win) {
+        return;
+      }
+      if (win.isMinimized()) {
+        win.restore();
+      }
+      if (!win.isVisible()) {
+        win.show();
+      }
+      win.focus();
+    },
+    getLocale: () => currentApplicationLocale,
+  });
+  disposeDesktopPetIpc = registerDesktopPetIpc({
+    controller: desktopPetController,
+    petsRootDir: desktopPetsRootDir,
+  });
+  if (bootstrapSettings) {
+    desktopPetController.applySettings({
+      desktopPetEnabled: bootstrapSettings.desktopPetEnabled,
+      desktopPetId: bootstrapSettings.desktopPetId,
+      desktopPetPosition: bootstrapSettings.desktopPetPosition,
+    });
   }
 
   // scheduler 也会打开 tasks-index；等 Host 完成统一准备，避免在启动页出现前抢先迁移。

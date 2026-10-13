@@ -10,6 +10,12 @@ export function createDesktopPlatform(options: {
   return {
     canSelectFilePath: true,
     pluginSandbox: createDesktopPluginSandboxPlatform(),
+    // 桌面宠物（本地定制，specs/desktop/desktop-pet.md）：状态上报 + 设置页列表/切换。
+    desktopPet: {
+      reportState: (state) => window.zcode.desktopPetReportState(state),
+      listInstalled: () => window.zcode.desktopPetListInstalled(),
+      setActive: (petId) => window.zcode.desktopPetSetActive(petId),
+    },
     createLocalMediaPreviewUrl: buildLocalMediaPreviewUrl,
     isLocalDevelopmentRuntime: options.isLocalDevelopmentRuntime,
     selectDirectory: () => window.zcode.selectDirectory(),

@@ -36,6 +36,7 @@ import type {
   PrepareCuaHelperPermissionDragResult,
 } from "./cuaAccessibilitySettings.js";
 import type { BrowserViewportSize } from "./browser-use/command-metadata.js";
+import type { DesktopPetInstalledInfo, DesktopPetState } from "./desktopPet.js";
 import type {
   PostUpdateReleaseNotesPayload,
   UpdateCheckResultPayload,
@@ -53,6 +54,19 @@ export interface TaskNotificationPayload {
   requestId?: string;
   title: string;
   body: string;
+}
+
+/**
+ * 桌面宠物平台端口（本地定制，specs/desktop/desktop-pet.md）。
+ * 仅 Desktop 实现：状态上报（多窗口由 main 汇总）与设置页的宠物列表/切换。
+ */
+export interface DesktopPetPlatformPort {
+  /** 上报本窗口的会话聚合状态（宠物动画输入；不改动会话语义）。 */
+  reportState(state: DesktopPetState): void;
+  /** 列出本地宠物目录（pets 根下通过校验的宠物）。 */
+  listInstalled(): Promise<DesktopPetInstalledInfo[]>;
+  /** 切换当前宠物（main 持久化 desktopPetId 并热重建宠物窗口）。 */
+  setActive(petId: string): Promise<void>;
 }
 
 /** Main 将一次能够定位真实 tab 的 browser-use 操作投递给其 origin renderer。 */
@@ -660,6 +674,12 @@ export interface IPlatformService {
    * web / 手机远控为 undefined，plugin-ui 据此回退到普通 MCP 工具卡片。
    */
   pluginSandbox?: PluginSandboxPlatformPort;
+
+  /**
+   * 桌面宠物（本地定制，specs/desktop/desktop-pet.md）。只有桌面端实现；
+   * web / 手机端为 undefined，设置页与状态驱动据此整体失效。
+   */
+  desktopPet?: DesktopPetPlatformPort;
 
   /** 打开系统目录选择框，返回选中路径或 null */
   selectDirectory(): Promise<string | null>;

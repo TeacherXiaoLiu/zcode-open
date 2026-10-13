@@ -2485,6 +2485,13 @@ const zhCN: Record<string, string> = {
   "settings.sessionTitleRefresh.rule": "第 {firstRound} 轮起，每 {interval} 轮刷新一次",
   "settings.sessionTitleRefresh.ruleDisabled": "已关闭（仅保留开头一次标题生成）",
   "settings.sessionTitleRefresh.saveError": "更新会话标题刷新设置失败",
+  "settings.desktopPet": "桌面宠物",
+  "settings.desktopPet.description":
+    "在桌面悬浮一只小宠物，实时镜像会话状态：有会话在跑时跑步、有失败或完成未读时提醒你查看。拖动可移动位置，右键可切换宠物或隐藏。",
+  "settings.desktopPet.activePet": "当前宠物",
+  "settings.desktopPet.activePetDescription":
+    "从 ~/.zcode/v2/pets 读取；与 Mikiko / Codex 桌宠格式互通，直接拷贝目录即可使用。",
+  "settings.desktopPet.saveError": "更新桌面宠物设置失败",
   "settings.dataBaseDir": "数据存储路径",
   "settings.dataBaseDirDescription":
     "应用数据的根目录（默认为用户主目录），修改后会将现有数据复制到新位置。路径后缀 .zcode/v2 不可更改。",

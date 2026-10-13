@@ -238,11 +238,13 @@ export default defineConfig(({ mode }) => {
       // 生产使用 hidden sourcemap：本地/发布流程保留 .map，不在产物里暴露映射入口。
       sourcemap: mode === "production" ? "hidden" : true,
       rollupOptions: {
-        // 多入口：主窗口 + 进程监控 + CUA 权限拖拽浮窗
+        // 多入口：主窗口 + 进程监控 + CUA 权限拖拽浮窗 + 桌面宠物
         input: {
           index: resolve(__dirname, "src/renderer/index.html"),
           "resource-manager": resolve(__dirname, "src/renderer/resource-manager.html"),
           "cua-permission-panel": resolve(__dirname, "src/renderer/cua-permission-panel.html"),
+          // 桌面宠物悬浮窗（本地定制，specs/desktop/desktop-pet.md）
+          pet: resolve(__dirname, "src/renderer/pet.html"),
           // 插件 UI 沙箱的受信 shell，经 zcode-sandbox:// 提供
           "plugin-sandbox": resolve(__dirname, "src/renderer/plugin-sandbox.html"),
         },

@@ -51,6 +51,9 @@ export const desktopMenuMessageIds = {
   trayTooltip: "tray.tooltip",
   trayOpenZCode: "tray.menu.openZCode",
   trayQuit: "tray.menu.quit",
+  // 桌面宠物右键菜单（本地定制，specs/desktop/desktop-pet.md）。
+  petSwitch: "pet.menu.switch",
+  petHide: "pet.menu.hide",
 } as const;
 
 export type DesktopMenuMessageId =
@@ -110,6 +113,8 @@ export const desktopMenuMessages: Record<Locale, DesktopMenuLocaleMessages> = {
     "tray.tooltip": "ZCode",
     "tray.menu.openZCode": "打开 ZCode",
     "tray.menu.quit": "退出",
+    "pet.menu.switch": "切换宠物",
+    "pet.menu.hide": "隐藏桌宠",
   },
   "en-US": {
     "titleBar.menu.file": "File",
@@ -162,6 +167,8 @@ export const desktopMenuMessages: Record<Locale, DesktopMenuLocaleMessages> = {
     "tray.tooltip": "ZCode",
     "tray.menu.openZCode": "Open ZCode",
     "tray.menu.quit": "Quit",
+    "pet.menu.switch": "Switch pet",
+    "pet.menu.hide": "Hide pet",
   },
 };
 

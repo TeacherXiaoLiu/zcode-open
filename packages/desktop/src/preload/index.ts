@@ -60,6 +60,8 @@ import type {
   RemoteTarget,
   TaskNotificationPayload,
   TelemetryRendererContext,
+  DesktopPetInstalledInfo,
+  DesktopPetState,
   RendererActionTraceBatchV1,
   RendererActionTraceConfigV1,
   RendererHeapSample,
@@ -768,6 +770,16 @@ contextBridge.exposeInMainWorld("zcode", {
   /** 通过 main process 触发原生任务通知 */
   showTaskNotification: (payload: TaskNotificationPayload) =>
     ipcRenderer.send(PlatformChannels.ShowTaskNotification, payload),
+  // ── 桌面宠物（本地定制，specs/desktop/desktop-pet.md）─────────────────────
+  /** 上报本窗口会话聚合状态（宠物动画输入；多窗口由 main 汇总）。 */
+  desktopPetReportState: (state: DesktopPetState): void =>
+    ipcRenderer.send(PlatformChannels.PetStateReport, state),
+  /** 列出本地宠物目录（设置页切换列表）。 */
+  desktopPetListInstalled: (): Promise<DesktopPetInstalledInfo[]> =>
+    ipcRenderer.invoke(PlatformChannels.PetListInstalled),
+  /** 切换当前宠物（main 持久化并热重建宠物窗口）。 */
+  desktopPetSetActive: (petId: string): Promise<void> =>
+    ipcRenderer.invoke(PlatformChannels.PetSetActive, petId),
   /** 导出日志：打包 ~/.zcode/v2 及外部 agent 日志为 zip 并在 Finder 中显示 */
   exportLogs: (): Promise<{
     success: boolean;
