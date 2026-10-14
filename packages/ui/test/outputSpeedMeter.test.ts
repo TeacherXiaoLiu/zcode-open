@@ -109,7 +109,7 @@ describe("output speed meter", () => {
     expect(meter.liveTokensPerSecond()).toBe(OUTPUT_SPEED_MAX_TPS);
   });
 
-  it("reset 清空全部统计（会话切换）", () => {
+  it("reset 清空全部统计", () => {
     const clock = createClock(0);
     const meter = createOutputSpeedMeter(clock.now);
     meter.push("你好世界");
@@ -120,6 +120,53 @@ describe("output speed meter", () => {
     expect(meter.liveTokensPerSecond()).toBeNull();
     expect(meter.averageTokensPerSecond()).toBeNull();
     expect(meter.hasRecentActivity()).toBe(false);
+  });
+
+  it("快照导出与恢复：平均口径保留，实时样本不恢复", () => {
+    const clock = createClock(0);
+    const meter = createOutputSpeedMeter(clock.now);
+    // 两段输出：平均 = 40 tokens / 2s = 20 tok/s。
+    meter.push("x".repeat(40));
+    clock.advance(1_000);
+    meter.push("x".repeat(40));
+    clock.advance(3_000);
+    meter.push("x".repeat(40));
+    clock.advance(1_000);
+    meter.push("x".repeat(40));
+    expect(meter.averageTokensPerSecond()).toBeCloseTo(20, 5);
+    const snapshot = meter.snapshotAverage();
+    expect(snapshot).toEqual({ totalTokens: 40, totalActiveMs: 2_000 });
+    // 模拟切走再回来：新计量器恢复快照，平均值一致，实时为 null（等新输出）。
+    const restored = createOutputSpeedMeter(clock.now);
+    restored.restoreAverage(snapshot);
+    expect(restored.averageTokensPerSecond()).toBeCloseTo(20, 5);
+    expect(restored.liveTokensPerSecond()).toBeNull();
+    expect(restored.hasRecentActivity()).toBe(false);
+    // 新输出继续累加在快照之上。
+    clock.advance(10_000);
+    restored.push("x".repeat(40));
+    clock.advance(1_000);
+    restored.push("x".repeat(40));
+    // 60 tokens / 3s = 20 tok/s。
+    expect(restored.averageTokensPerSecond()).toBeCloseTo(20, 5);
+  });
+
+  it("无数据时快照为 null；恢复 null/非法快照等价于清空", () => {
+    const clock = createClock(0);
+    const meter = createOutputSpeedMeter(clock.now);
+    expect(meter.snapshotAverage()).toBeNull();
+    meter.push("你好世界");
+    clock.advance(500);
+    meter.push("你好世界");
+    expect(meter.snapshotAverage()).not.toBeNull();
+    meter.restoreAverage(null);
+    expect(meter.averageTokensPerSecond()).toBeNull();
+    expect(meter.liveTokensPerSecond()).toBeNull();
+    meter.push("你好世界");
+    clock.advance(500);
+    meter.push("你好世界");
+    meter.restoreAverage({ totalTokens: 0, totalActiveMs: 0 });
+    expect(meter.averageTokensPerSecond()).toBeNull();
   });
 
   it("hasRecentActivity 只在最近窗口内有输出时为真", () => {

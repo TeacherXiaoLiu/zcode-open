@@ -1052,10 +1052,11 @@ export function SessionPane({
     workspacePath,
   ]);
   const sessionLeaseReady = lease?.sessionId === sessionId;
-  // 输出速度计量器（本地定制）：绑定当前会话 lease 的投影 store，渲染在输入框下方；
-  // lease 未就绪或仍指向旧会话时不接数据源，避免把别的会话的输出计进来。
+  // 输出速度计量器（本地定制）：按 sessionId 持有每会话计量器；切走再回来时恢复
+  // 该会话的平均速度显示。lease 未就绪或仍指向旧会话时不接数据源。
   const outputSpeedMeter = useConversationOutputSpeed(
     sessionLeaseReady ? (lease?.store ?? null) : null,
+    sessionId,
   );
   const shouldMeasureExistingSessionOpen =
     sessionLeaseReady && newlyCreatedSessionIdRef.current !== sessionId;

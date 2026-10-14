@@ -33,10 +33,22 @@ interface SpeedSample {
   tokens: number;
 }
 
+/**
+ * 平均速度快照（跨会话切换保留）。
+ * 实时样本带 renderer 时钟时间戳，切走的会话再回来时必然过期，所以跨会话只保留平均口径；
+ * 实时读数回到会话后等新输出自然恢复。
+ */
+export interface OutputSpeedAverageSnapshot {
+  /** 累计估算 token（平均速度的分子）。 */
+  totalTokens: number;
+  /** 累计生成时长毫秒（平均速度的分母，不含停顿）。 */
+  totalActiveMs: number;
+}
+
 export interface OutputSpeedMeter {
   /** 推入一段模型输出文本（assistantText / reasoning 的流式增量）。 */
   push(text: string): void;
-  /** 清空全部统计（会话切换时调用，样本属于旧会话）。 */
+  /** 清空全部统计（当前会话没有可用快照时调用）。 */
   reset(): void;
   /** 实时速度（tok/s 估算）；滑动窗口内无输出时返回 null。 */
   liveTokensPerSecond(now?: number): number | null;
@@ -44,6 +56,13 @@ export interface OutputSpeedMeter {
   averageTokensPerSecond(): number | null;
   /** 最近是否有输出活动（驱动状态条按需刷新）。 */
   hasRecentActivity(withinMs?: number, now?: number): boolean;
+  /** 导出平均口径快照；无数据时返回 null。 */
+  snapshotAverage(): OutputSpeedAverageSnapshot | null;
+  /**
+   * 从快照恢复平均口径（切回有历史的会话时调用）。
+   * 只恢复平均的分子分母：实时样本的时间戳在切换期间已过期，不恢复。
+   */
+  restoreAverage(snapshot: OutputSpeedAverageSnapshot | null): void;
 }
 
 /**
@@ -89,6 +108,13 @@ export function createOutputSpeedMeter(
       closedActiveMs += Math.max(0, lastPushAt - segmentStart);
     }
     segmentStart = null;
+  }
+
+  /** 当前平均口径的完整分母（含未结算段），供导出快照与读平均值共用。 */
+  function currentTotalActiveMs(): number {
+    const openMs =
+      segmentStart !== null && lastPushAt !== null ? Math.max(0, lastPushAt - segmentStart) : 0;
+    return closedActiveMs + openMs;
   }
 
   return {
@@ -153,14 +179,37 @@ export function createOutputSpeedMeter(
       if (totalTokens <= 0) {
         return null;
       }
-      // 当前未结算段按"首帧到末帧"计入，与已结算段口径一致。
-      const openMs =
-        segmentStart !== null && lastPushAt !== null ? Math.max(0, lastPushAt - segmentStart) : 0;
-      const totalMs = closedActiveMs + openMs;
+      const totalMs = currentTotalActiveMs();
       if (totalMs <= 0) {
         return null;
       }
       return totalTokens / (totalMs / 1000);
+    },
+
+    snapshotAverage(): OutputSpeedAverageSnapshot | null {
+      if (totalTokens <= 0) {
+        return null;
+      }
+      const totalMs = currentTotalActiveMs();
+      if (totalMs <= 0) {
+        return null;
+      }
+      return { totalTokens, totalActiveMs: totalMs };
+    },
+
+    restoreAverage(snapshot: OutputSpeedAverageSnapshot | null): void {
+      // 先整体清空（含实时样本与生成段）：恢复的只是平均口径，不把旧实时样本带回来。
+      samples = [];
+      head = 0;
+      segmentStart = null;
+      lastPushAt = null;
+      if (!snapshot || snapshot.totalTokens <= 0 || snapshot.totalActiveMs <= 0) {
+        totalTokens = 0;
+        closedActiveMs = 0;
+        return;
+      }
+      totalTokens = snapshot.totalTokens;
+      closedActiveMs = snapshot.totalActiveMs;
     },
 
     hasRecentActivity(withinMs = OUTPUT_SPEED_RATE_WINDOW_MS * 2, at = now()): boolean {
