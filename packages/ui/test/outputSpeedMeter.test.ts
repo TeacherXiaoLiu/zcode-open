@@ -19,15 +19,15 @@ function createClock(start = 0) {
 }
 
 describe("estimateOutputTokens", () => {
-  it("英文按 4 字符/token 估算，空白不计", () => {
-    expect(estimateOutputTokens("hello world")).toBeCloseTo(2.5, 5);
+  it("英文按 0.3 token/字符估算，空白不计", () => {
+    expect(estimateOutputTokens("hello world")).toBeCloseTo(10 * 0.3, 5);
     expect(estimateOutputTokens("")).toBe(0);
     expect(estimateOutputTokens("   \n\t")).toBe(0);
   });
 
-  it("CJK 按 1 token/字估算", () => {
-    expect(estimateOutputTokens("你好世界")).toBe(4);
-    expect(estimateOutputTokens("你好 hello")).toBeCloseTo(3.25, 5);
+  it("CJK 按 0.6 token/字估算", () => {
+    expect(estimateOutputTokens("你好世界")).toBeCloseTo(4 * 0.6, 5);
+    expect(estimateOutputTokens("你好 hello")).toBeCloseTo(2 * 0.6 + 5 * 0.3, 5);
   });
 });
 
@@ -42,24 +42,24 @@ describe("output speed meter", () => {
   it("刚开始输出时用实际跨度作分母，窗口填满后按窗口长度稳定", () => {
     const clock = createClock(1_000);
     const meter = createOutputSpeedMeter(clock.now);
-    meter.push("你好"); // 2 tokens
-    // span = max(500ms 下限, 0) → 2 / 0.5s = 4 tok/s
-    expect(meter.liveTokensPerSecond()).toBeCloseTo(4, 5);
+    meter.push("你好"); // 2 × 0.6 = 1.2 tokens
+    // span = max(500ms 下限, 0) → 1.2 / 0.5s = 2.4 tok/s
+    expect(meter.liveTokensPerSecond()).toBeCloseTo(2.4, 5);
     clock.advance(1_000);
-    // span = 1s → 2 tok/s
-    expect(meter.liveTokensPerSecond()).toBeCloseTo(2, 5);
+    // span = 1s → 1.2 tok/s
+    expect(meter.liveTokensPerSecond()).toBeCloseTo(1.2, 5);
   });
 
   it("持续输出时实时速度接近窗口内的实际速率；停止 5 秒后归零", () => {
     const clock = createClock(0);
     const meter = createOutputSpeedMeter(clock.now);
-    // 每秒 10 tokens（20 个半角字符）连续 6 秒。
+    // 每秒 12 tokens（40 个英文字符 × 0.3）连续 6 秒。
     for (let second = 0; second < 6; second += 1) {
-      meter.push("x".repeat(40)); // 10 tokens
+      meter.push("x".repeat(40)); // 12 tokens
       clock.advance(1_000);
     }
-    // 窗口 5 秒内 5 个样本（时间 1s..5s）→ 50/5 = 10 tok/s
-    expect(meter.liveTokensPerSecond()).toBeCloseTo(10, 0);
+    // 窗口 5 秒内 5 个样本（时间 1s..5s）→ 60/5 = 12 tok/s
+    expect(meter.liveTokensPerSecond()).toBeCloseTo(12, 0);
     clock.advance(OUTPUT_SPEED_RATE_WINDOW_MS);
     expect(meter.liveTokensPerSecond()).toBeNull();
   });
@@ -67,28 +67,28 @@ describe("output speed meter", () => {
   it("平均速度按生成段累计：停顿（工具执行等）不计入分母", () => {
     const clock = createClock(0);
     const meter = createOutputSpeedMeter(clock.now);
-    // 段 1：0s 与 1s 各 10 tokens，跨度 1s。
+    // 段 1：0s 与 1s 各 12 tokens，跨度 1s。
     meter.push("x".repeat(40));
     clock.advance(1_000);
     meter.push("x".repeat(40));
     // 停顿 3 秒（超过 IDLE_GAP 视为新段）。
     clock.advance(3_000);
-    // 段 2：4s 与 5s 各 10 tokens，跨度 1s。
+    // 段 2：4s 与 5s 各 12 tokens，跨度 1s。
     meter.push("x".repeat(40));
     clock.advance(1_000);
     meter.push("x".repeat(40));
-    // 总 40 tokens / 2s 生成时长 = 20 tok/s，3 秒停顿未计入。
-    expect(meter.averageTokensPerSecond()).toBeCloseTo(20, 5);
+    // 总 48 tokens / 2s 生成时长 = 24 tok/s，3 秒停顿未计入。
+    expect(meter.averageTokensPerSecond()).toBeCloseTo(24, 5);
   });
 
   it("停顿后新段的实时分子不含旧段样本", () => {
     const clock = createClock(0);
     const meter = createOutputSpeedMeter(clock.now);
-    meter.push("x".repeat(400)); // 100 tokens @ 0s
+    meter.push("x".repeat(400)); // 120 tokens @ 0s
     clock.advance(OUTPUT_SPEED_IDLE_GAP_MS + 500);
-    meter.push("x".repeat(4)); // 1 token @ 2.5s（新段）
-    // 窗口内仍含旧段大样本，但新段只算 1 token / 500ms 下限 = 2 tok/s。
-    expect(meter.liveTokensPerSecond()).toBeCloseTo(2, 5);
+    meter.push("x".repeat(40)); // 12 tokens @ 2.5s（新段）
+    // 窗口内仍含旧段大样本，但新段只算 12 tokens / 500ms 下限 = 24 tok/s。
+    expect(meter.liveTokensPerSecond()).toBeCloseTo(24, 5);
   });
 
   it("超过单帧上限的批量/重放帧不参与统计", () => {
@@ -125,7 +125,7 @@ describe("output speed meter", () => {
   it("快照导出与恢复：平均口径保留，实时样本不恢复", () => {
     const clock = createClock(0);
     const meter = createOutputSpeedMeter(clock.now);
-    // 两段输出：平均 = 40 tokens / 2s = 20 tok/s。
+    // 两段输出：平均 = 48 tokens / 2s = 24 tok/s。
     meter.push("x".repeat(40));
     clock.advance(1_000);
     meter.push("x".repeat(40));
@@ -133,13 +133,13 @@ describe("output speed meter", () => {
     meter.push("x".repeat(40));
     clock.advance(1_000);
     meter.push("x".repeat(40));
-    expect(meter.averageTokensPerSecond()).toBeCloseTo(20, 5);
+    expect(meter.averageTokensPerSecond()).toBeCloseTo(24, 5);
     const snapshot = meter.snapshotAverage();
-    expect(snapshot).toEqual({ totalTokens: 40, totalActiveMs: 2_000 });
+    expect(snapshot).toEqual({ totalTokens: 48, totalActiveMs: 2_000 });
     // 模拟切走再回来：新计量器恢复快照，平均值一致，实时为 null（等新输出）。
     const restored = createOutputSpeedMeter(clock.now);
     restored.restoreAverage(snapshot);
-    expect(restored.averageTokensPerSecond()).toBeCloseTo(20, 5);
+    expect(restored.averageTokensPerSecond()).toBeCloseTo(24, 5);
     expect(restored.liveTokensPerSecond()).toBeNull();
     expect(restored.hasRecentActivity()).toBe(false);
     // 新输出继续累加在快照之上。
@@ -147,8 +147,8 @@ describe("output speed meter", () => {
     restored.push("x".repeat(40));
     clock.advance(1_000);
     restored.push("x".repeat(40));
-    // 60 tokens / 3s = 20 tok/s。
-    expect(restored.averageTokensPerSecond()).toBeCloseTo(20, 5);
+    // 72 tokens / 3s = 24 tok/s。
+    expect(restored.averageTokensPerSecond()).toBeCloseTo(24, 5);
   });
 
   it("无数据时快照为 null；恢复 null/非法快照等价于清空", () => {

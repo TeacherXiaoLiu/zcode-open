@@ -33,6 +33,11 @@ interface SpeedSample {
   tokens: number;
 }
 
+/** 中文字符 → token 换算系数（用户指定的经验口径：1 个中文字符 ≈ 0.6 token）。 */
+export const CJK_CHAR_TO_TOKEN_RATIO = 0.6;
+/** 英文等其余字符 → token 换算系数（用户指定的经验口径：1 个英文字符 ≈ 0.3 token）。 */
+export const OTHER_CHAR_TO_TOKEN_RATIO = 0.3;
+
 /**
  * 平均速度快照（跨会话切换保留）。
  * 实时样本带 renderer 时钟时间戳，切走的会话再回来时必然过期，所以跨会话只保留平均口径；
@@ -66,9 +71,10 @@ export interface OutputSpeedMeter {
 }
 
 /**
- * 字符 → token 粗估。
- * CJK（中日韩统一表意文字，含扩展 A 区）按约 1 token/字；其余非空白按约 4 字符/token。
- * 系数取的是主流模型的中位量级（cl100k 对中文偏高、中文优化模型偏低），不做 per-model 校准。
+ * 字符 → token 粗估（用户指定的换算口径）。
+ * 中文字符约 0.6 token/字；英文等其余非空白字符约 0.3 token/字；空白不计。
+ * 系数是面向常用模型的经验值，不做 per-model 校准——估算只用于实时/平均速度的
+ * 节奏反馈，权威值以 provider 上报 usage 算出的 TPS 为准。
  */
 export function estimateOutputTokens(text: string): number {
   let cjk = 0;
@@ -81,7 +87,7 @@ export function estimateOutputTokens(text: string): number {
       other += 1;
     }
   }
-  return cjk + other / 4;
+  return cjk * CJK_CHAR_TO_TOKEN_RATIO + other * OTHER_CHAR_TO_TOKEN_RATIO;
 }
 
 /** CJK 统一表意文字（4E00–9FFF）与扩展 A 区（3400–4DBF）；代理对（扩展 B+）按对计 1 字。 */
