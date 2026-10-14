@@ -174,6 +174,9 @@ import {
   resolveV4ComposerConfigPickerState,
   type V4ComposerConfigPicker,
 } from "@/v4/composer/configPickerState.js";
+import type { ComposerOutputSpeedStatsSource } from "@/v4/composer/ComposerOutputSpeed.js";
+import { resolveSessionToolDurationMs } from "@/v4/composer/sessionStats.js";
+import type { OutputSpeedMeter } from "@/v4/outputSpeedMeter.js";
 import { WebElementContextAttachmentChip } from "@/v4/composer/WebElementContextAttachmentChip.js";
 import { ConversationSelectionReferenceChip } from "@/v4/composer/ConversationSelectionReferenceChip.js";
 import type { AttachmentPutFn } from "@/v4/composer/attachmentUpload.js";
@@ -499,6 +502,8 @@ export interface ConversationComposerProps {
   appSlashCommands?: readonly AppSlashCommand[];
   /** 把 composer 的 drop 路由暴露给整个对话 pane / 桌面草稿标题栏。 */
   onDropTargetControllerChange?: (controller: ConversationDropTargetController | null) => void;
+  /** 会话输出速度计量器（本地定制）：渲染输入框下方的实时/平均 tok/s 状态条。 */
+  outputSpeedMeter?: OutputSpeedMeter | null;
 }
 
 function formatAttachmentLineCount(attachment: ChatComposerAttachment, locale: string): string {
@@ -557,6 +562,7 @@ function ConversationComposerImpl({
   onOpenModelSettings,
   onOpenModelUpgrade,
   onOpenCodeViewer,
+  outputSpeedMeter = null,
   listenAddToChatEvents = true,
   externalTextInsertRequest = null,
   onExternalTextInsertApplied,
@@ -2144,6 +2150,28 @@ function ConversationComposerImpl({
   // 避免每个 token 批次都重建 Tooltip/Select 子树。
   const composerUsage = snapshot?.usage ?? null;
   const composerPhase = snapshot?.control.phase ?? null;
+  // 输出速度标签（本地定制，specs/composer-output-speed.md）：meter 来自会话 lease（引用稳定）；
+  // 统计弹窗的数据源同样保持引用稳定——readToolDurationMs 走 snapshotRef 现读，
+  // 避免把每帧变化的 snapshot 带进工具栏 memo 子树造成高频重建。
+  const readSessionToolDurationMs = useCallback(
+    () => resolveSessionToolDurationMs(snapshotRef.current),
+    [],
+  );
+  const outputSpeed = useMemo(() => {
+    if (!outputSpeedMeter) {
+      return null;
+    }
+    const stats: ComposerOutputSpeedStatsSource | null =
+      sessionId !== null
+        ? {
+            sessionId,
+            workspacePath,
+            ...(workspaceIdentity ? { workspaceIdentity } : {}),
+            readToolDurationMs: readSessionToolDurationMs,
+          }
+        : null;
+    return { meter: outputSpeedMeter, stats };
+  }, [outputSpeedMeter, sessionId, workspacePath, workspaceIdentity, readSessionToolDurationMs]);
   const handleSelectModelTrace = useCallback(
     (nextProvider: string, nextModel: string, sourceModel: ModelSelectionSource | null) =>
       runUserAction({
@@ -2190,6 +2218,7 @@ function ConversationComposerImpl({
             onSwitchMode={onSwitchMode}
             onRecoverCustomModelSelection={onRecoverCustomModelSelection}
             onSendCompressionCommand={onSendCompressionCommand}
+            outputSpeed={outputSpeed}
           />
         </span>
         {showStopControl ? (
@@ -2254,6 +2283,7 @@ function ConversationComposerImpl({
       onRecoverCustomModelSelection,
       onSendCompressionCommand,
       onSwitchMode,
+      outputSpeed,
       pending,
       provider,
       modifierTooltip,

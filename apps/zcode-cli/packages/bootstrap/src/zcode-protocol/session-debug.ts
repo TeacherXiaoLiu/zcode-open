@@ -141,6 +141,10 @@ export function observeSessionDebug(record: SessionRecord, event: SessionEvent):
         inputTokens !== undefined && inputTokens > 0 && cacheReadTokens !== undefined
           ? cacheReadTokens / inputTokens
           : null,
+      // 会话统计（本地定制）需要请求总时长与 TTFT 本值：generationDurationMs 是两者的差额，
+      // 无法反推出各自分量；此处原样保留，旧快照（无这两个字段）由 schema nullable 兼容。
+      durationMs: duration ?? null,
+      timeToFirstContentMs: first ?? null,
       generationDurationMs,
       tokensPerSecond: calculateOutputTps(outputTokens, generationDurationMs),
     },

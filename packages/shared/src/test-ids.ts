@@ -556,6 +556,10 @@ export const TID_V4_COMPOSER_BACKGROUND_WORK_TRIGGER = "v4-composer-background-w
 export const TID_V4_COMPOSER_CUA_ENTRY = "v4-composer-cua-entry";
 /** v4 composer 发送按钮 */
 export const TID_V4_COMPOSER_SEND = "v4-composer-send";
+/** v4 composer 工具栏内的输出速度标签（实时/平均 tok/s；点击展开会话统计） */
+export const TID_V4_COMPOSER_OUTPUT_SPEED = "v4-composer-output-speed";
+/** 输出速度标签点击后的"会话统计"弹窗 */
+export const TID_V4_COMPOSER_SESSION_STATS = "v4-composer-session-stats";
 /** v4 暂停队列发送确认：清空队列并发送 */
 export const TID_V4_COMPOSER_CLEAR_QUEUE_SEND = "v4-composer-clear-queue-send";
 /** v4 暂停队列发送确认：保留队列并发送 */

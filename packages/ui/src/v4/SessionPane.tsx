@@ -281,6 +281,7 @@ import {
 import { useSlashCommands } from "@/hooks/useSlashCommands.js";
 import { useV4Conversation } from "@/v4/V4ConversationContext.js";
 import { useConversationProjection } from "@/v4/useConversationProjection.js";
+import { useConversationOutputSpeed } from "@/v4/useConversationOutputSpeed.js";
 import { usePendingCommandRecovery } from "@/v4/usePendingCommandRecovery.js";
 import { useV4SessionQuotaBanner } from "@/v4/useV4SessionQuotaBanner.js";
 import { resolveMcpUnavailableNotice } from "@/v4/mcpUnavailableBannerNotice.js";
@@ -1051,6 +1052,11 @@ export function SessionPane({
     workspacePath,
   ]);
   const sessionLeaseReady = lease?.sessionId === sessionId;
+  // 输出速度计量器（本地定制）：绑定当前会话 lease 的投影 store，渲染在输入框下方；
+  // lease 未就绪或仍指向旧会话时不接数据源，避免把别的会话的输出计进来。
+  const outputSpeedMeter = useConversationOutputSpeed(
+    sessionLeaseReady ? (lease?.store ?? null) : null,
+  );
   const shouldMeasureExistingSessionOpen =
     sessionLeaseReady && newlyCreatedSessionIdRef.current !== sessionId;
   useSessionOpenArmsTelemetry({
@@ -5246,6 +5252,7 @@ export function SessionPane({
       suppressGoalCommands={selectionSideChat}
       appSlashCommands={appSlashCommands}
       onDropTargetControllerChange={handleDropTargetControllerChange}
+      outputSpeedMeter={outputSpeedMeter}
     />
   );
   const pendingGuideProjection = snapshot ? projectPendingGuideQueue(snapshot.queue) : null;

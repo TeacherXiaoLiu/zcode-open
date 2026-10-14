@@ -126,12 +126,18 @@ export function registerDesktopPetIpc(options: {
     const parsed = sessionIdSchema.safeParse(payload);
     if (parsed.success) controller.openSession(parsed.data);
   };
+  const onBubbleDismissSession = (event: IpcMainEvent, payload: unknown) => {
+    if (event.sender.isDestroyed() || !controller.ownsBubbleWebContents(event.sender.id)) return;
+    const parsed = sessionIdSchema.safeParse(payload);
+    if (parsed.success) controller.dismissSession(parsed.data);
+  };
   ipcMain.on(PlatformChannels.PetStateReport, onStateReport);
   ipcMain.on(PlatformChannels.PetDragStart, onDragStart);
   ipcMain.on(PlatformChannels.PetContextMenu, onContextMenu);
   ipcMain.on(PlatformChannels.PetOpenApp, onOpenApp);
   ipcMain.on(PlatformChannels.PetCancelOperation, onCancel);
   ipcMain.on(PlatformChannels.PetBubbleOpenSession, onBubbleOpenSession);
+  ipcMain.on(PlatformChannels.PetBubbleDismissSession, onBubbleDismissSession);
   handle(PlatformChannels.PetDragEnd, (event) => {
     assertPet(event);
     return controller.endDrag();
@@ -187,5 +193,6 @@ export function registerDesktopPetIpc(options: {
     ipcMain.removeListener(PlatformChannels.PetOpenApp, onOpenApp);
     ipcMain.removeListener(PlatformChannels.PetCancelOperation, onCancel);
     ipcMain.removeListener(PlatformChannels.PetBubbleOpenSession, onBubbleOpenSession);
+    ipcMain.removeListener(PlatformChannels.PetBubbleDismissSession, onBubbleDismissSession);
   };
 }

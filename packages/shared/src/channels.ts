@@ -383,8 +383,10 @@ export const PlatformChannels = {
   PetGetActivity: "zcode:pet-get-activity",
   /** Main → Bubble：下发汇总活动（状态 + 会话标题）。 */
   DesktopPetActivity: "zcode:desktop-pet-activity",
-  /** Bubble → Main：点击会话条，跳转到该会话并从气泡移除（视为已处理）。 */
+  /** Bubble → Main：点击会话条，跳转到该会话（不移除条目，气泡保持常驻）。 */
   PetBubbleOpenSession: "zcode:pet-bubble-open-session",
+  /** Bubble → Main：点击条目上的关闭按钮，移除该条目（唯一的移除路径）。 */
+  PetBubbleDismissSession: "zcode:pet-bubble-dismiss-session",
   /** Main → Renderer（应用主窗口）：打开指定会话（含跨 workspace 切换）。 */
   PetOpenSession: "zcode:pet-open-session",
   /** Pet → Main：拖动开始（main 进入跟随光标移动循环）。 */
@@ -1333,6 +1335,10 @@ export interface PlatformChannelMap {
     response: void;
   };
   [PlatformChannels.PetBubbleOpenSession]: {
+    request: string;
+    response: void;
+  };
+  [PlatformChannels.PetBubbleDismissSession]: {
     request: string;
     response: void;
   };

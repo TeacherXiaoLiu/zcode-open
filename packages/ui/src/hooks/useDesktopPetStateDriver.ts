@@ -71,7 +71,7 @@ interface ActivityEntry {
 /**
  * 活动收敛：动画状态由最高优先级条目推导；气泡列表收集运行中、未读，
  * 以及本窗口运行期间追踪过的完成/失败会话（tracked，指向用户"完成后保留"的诉求；
- * 点击跳转后由 main 移除）。同优先级按活动时间倒序，截断到 3 条。
+ * 仅用户点击条目上的关闭按钮时由 main 移除）。同优先级按活动时间倒序，截断到 3 条。
  */
 export function resolveDesktopPetActivity(
   cache: {
@@ -120,7 +120,7 @@ export function resolveDesktopPetActivity(
 export function useDesktopPetStateDriver(): void {
   const platform = usePlatform();
   // 本窗口运行期间见过 running 的会话：完成后保留在气泡里（绿灯/红灯），
-  // 直到用户点击跳转（main 移除）；应用重启后集合清空。
+  // 仅用户点击关闭按钮时（main 侧）移除；应用重启后集合清空。
   const trackedRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {

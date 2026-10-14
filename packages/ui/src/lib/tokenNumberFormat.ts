@@ -23,3 +23,14 @@ export function formatModelContextWindowLabel(contextWindow: number, _locale = "
   // 模型列表的容量 badge 是技术规格，不应随中文 locale 变成“万/亿”。
   return formatCompactTokenNumber("en-US", contextWindow);
 }
+
+/**
+ * 千分位完整数字（Token 用量明细用）。
+ * 与摘要行的 compact 不同：明细需要可核对的精确值，压缩单位会失去精度。
+ */
+export function formatGroupedTokenNumber(locale: string, value: number): string {
+  if (!Number.isFinite(value)) {
+    return "";
+  }
+  return new Intl.NumberFormat(locale || undefined, { maximumFractionDigits: 0 }).format(value);
+}

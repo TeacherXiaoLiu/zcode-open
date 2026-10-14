@@ -15,7 +15,10 @@ contextBridge.exposeInMainWorld("desktopPetBubble", {
     ipcRenderer.on(PlatformChannels.DesktopPetActivity, listener);
     return () => ipcRenderer.removeListener(PlatformChannels.DesktopPetActivity, listener);
   },
-  /** 点击会话条：请求 main 打开对应会话（并由 main 从气泡移除该条）。 */
+  /** 点击会话条：请求 main 打开对应会话（条目保留，气泡保持常驻）。 */
   openSession: (sessionId: string): void =>
     ipcRenderer.send(PlatformChannels.PetBubbleOpenSession, sessionId),
+  /** 点击条目上的关闭按钮：请求 main 移除该条目（唯一的移除路径）。 */
+  dismissSession: (sessionId: string): void =>
+    ipcRenderer.send(PlatformChannels.PetBubbleDismissSession, sessionId),
 });

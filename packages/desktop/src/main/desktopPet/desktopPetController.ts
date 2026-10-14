@@ -24,15 +24,9 @@ import {
 } from "./desktopPetCatalog.js";
 import { createDesktopPetBubble, type DesktopPetBubbleHandle } from "./desktopPetBubble.js";
 import { createDesktopPetDrag } from "./desktopPetDrag.js";
-import {
-  resolveDesktopPetBounds,
-  resolveResizedDesktopPetBounds,
-} from "./desktopPetPlacement.js";
+import { resolveDesktopPetBounds, resolveResizedDesktopPetBounds } from "./desktopPetPlacement.js";
 import { DESKTOP_PET_PACK_SCHEME } from "./desktopPetProtocol.js";
-import type {
-  DesktopPetBubbleWindowHandle,
-  DesktopPetWindowHandle,
-} from "./desktopPetWindow.js";
+import type { DesktopPetBubbleWindowHandle, DesktopPetWindowHandle } from "./desktopPetWindow.js";
 
 /**
  * 桌面宠物控制器（本地定制，specs/desktop/desktop-pet.md）。
@@ -87,8 +81,10 @@ export interface DesktopPetController {
   releaseReporter(reporterId: number): void;
   /** 气泡窗口拉取当前汇总活动（getActivity IPC 的应答）。 */
   getBubblePayload(): DesktopPetBubblePayload;
-  /** 气泡点击会话条：移除该条（视为已处理）并请求主窗口跳转到对应会话。 */
+  /** 气泡点击会话条：请求主窗口跳转到对应会话（条目保留，不关闭气泡）。 */
   openSession(sessionId: string): void;
+  /** 气泡点击条目上的关闭按钮：把该条目标记为已处理并从气泡移除（唯一移除路径）。 */
+  dismissSession(sessionId: string): void;
   /** 当前活动宠物 ID（删除安全检查用）。 */
   getActivePetId(): string | undefined;
   /** 切换当前宠物（设置页/右键菜单）：持久化 + 热重建窗口。 */
@@ -113,7 +109,7 @@ export function createDesktopPetController(deps: DesktopPetControllerDeps): Desk
   let scale = DESKTOP_PET_SCALE_DEFAULT;
   let window: DesktopPetWindowHandle | null = null;
   const stateByReporter = new Map<number, DesktopPetActivity>();
-  /** 用户点击跳转过的会话：从气泡移除（视为已处理）；重新运行时会话会清除该标记。 */
+  /** 用户点过关闭按钮的会话：从气泡移除（视为已处理）；重新运行时会话会清除该标记。 */
   const dismissedSessions = new Set<string>();
   let lastPushedState: DesktopPetState | undefined;
   let lastBubbleKey: string | undefined;
@@ -151,7 +147,11 @@ export function createDesktopPetController(deps: DesktopPetControllerDeps): Desk
   }
 
   function effectiveActivity(): DesktopPetActivity {
-    return resolveEffectiveActivity(stateByReporter.values(), dismissedSessions, MAX_BUBBLE_SESSIONS);
+    return resolveEffectiveActivity(
+      stateByReporter.values(),
+      dismissedSessions,
+      MAX_BUBBLE_SESSIONS,
+    );
   }
 
   function pushActivity(force = false): void {
@@ -418,10 +418,16 @@ export function createDesktopPetController(deps: DesktopPetControllerDeps): Desk
       if (disposed) {
         return;
       }
-      dismissedSessions.add(sessionId);
+      // 只跳转，不移除条目：气泡保持常驻，是否关闭由用户点击条目上的关闭按钮决定。
       // 先激活主窗口再转发跳转请求：气泡点击时主窗可能最小化或被盖住。
       deps.openMainWindow();
       deps.openSession(sessionId);
+    },
+    dismissSession(sessionId) {
+      if (disposed || dismissedSessions.has(sessionId)) {
+        return;
+      }
+      dismissedSessions.add(sessionId);
       pushActivity();
     },
     getActivePetId: () => activePetId,

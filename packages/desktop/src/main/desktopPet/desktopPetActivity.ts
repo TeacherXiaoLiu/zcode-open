@@ -23,7 +23,7 @@ export function resolveEffectiveActivity(
       if (seen.has(session.sessionId)) {
         continue;
       }
-      // 用户点击跳转过的会话从气泡移除（视为已处理）；重新运行时会清除该标记。
+      // 用户点过关闭按钮的会话从气泡移除；重新运行时会清除该标记。
       if (dismissed.has(session.sessionId)) {
         continue;
       }

@@ -286,7 +286,7 @@ describe("桌宠控制器活动汇总", () => {
     ]);
   });
 
-  it("点击会话条：从气泡移除该条（视为已处理）并请求主窗口跳转", () => {
+  it("点击会话条：只请求主窗口跳转，条目保留（气泡常驻）", () => {
     const { controller, petWindows, bubbleWindows, openMainWindow, openSession } = createController();
     controller.applySettings({ desktopPetEnabled: true });
     petWindows[0]!.fireReady();
@@ -304,15 +304,40 @@ describe("桌宠控制器活动汇总", () => {
     controller.openSession("c1");
     expect(openMainWindow).toHaveBeenCalledOnce();
     expect(openSession).toHaveBeenCalledWith("c1");
+    // 点击跳转不改变活动：条目仍在，气泡不会因点击而消失。
+    expect(controller.getBubblePayload().activity.sessions.map((s) => s.sessionId)).toEqual([
+      "c1",
+      "c2",
+    ]);
+  });
+
+  it("关闭按钮：只移除对应条目；重复关闭无副作用，全部关闭后回到 idle", () => {
+    const { controller, petWindows, bubbleWindows } = createController();
+    controller.applySettings({ desktopPetEnabled: true });
+    petWindows[0]!.fireReady();
+    bubbleWindows[0]!.fireReady();
+    controller.reportActivity(
+      {
+        state: "review",
+        sessions: [
+          { sessionId: "c1", title: "完成的会话", state: "completed" },
+          { sessionId: "c2", title: "另一个", state: "completed" },
+        ],
+      },
+      11,
+    );
+    controller.dismissSession("c1");
     expect(controller.getBubblePayload().activity.sessions.map((s) => s.sessionId)).toEqual(["c2"]);
-    // 再点掉最后一条：气泡活动回到 idle，触发隐藏。
-    controller.openSession("c2");
+    controller.dismissSession("c1");
+    expect(controller.getBubblePayload().activity.sessions.map((s) => s.sessionId)).toEqual(["c2"]);
+    // 关闭最后一条：气泡活动回到 idle，触发隐藏。
+    controller.dismissSession("c2");
     expect(controller.getBubblePayload()).toMatchObject({
       activity: { state: "idle", sessions: [] },
     });
   });
 
-  it("已处理的会话重新运行后清除标记，可再次出现在气泡", () => {
+  it("已关闭的会话重新运行后清除标记，可再次出现在气泡", () => {
     const { controller, petWindows, bubbleWindows } = createController();
     controller.applySettings({ desktopPetEnabled: true });
     petWindows[0]!.fireReady();
@@ -321,7 +346,7 @@ describe("桌宠控制器活动汇总", () => {
       { state: "review", sessions: [{ sessionId: "s1", title: "任务", state: "completed" }] },
       11,
     );
-    controller.openSession("s1");
+    controller.dismissSession("s1");
     expect(controller.getBubblePayload().activity.sessions).toEqual([]);
     controller.reportActivity(
       { state: "running", sessions: [{ sessionId: "s1", title: "任务", state: "running" }] },

@@ -1,7 +1,7 @@
 /**
  * 桌宠会话汇报气泡渲染器（三期，specs/desktop/desktop-pet.md）。
  * 渲染"会话列表：状态灯 + 标题 + 最新助手回复摘要"；点击条目跳转到对应会话
- * （由 main 转发给应用主窗口并从气泡移除）。显示/隐藏与窗口高度由 main 决定。
+ * （条目保留、气泡常驻，唯一移除路径是条目右侧的关闭按钮）。显示/隐藏与窗口高度由 main 决定。
  * 文案内置 zh-CN/en-US 两份映射（main 在推送里带上 locale），不引入完整 i18n 框架。
  */
 import type {
@@ -15,6 +15,7 @@ interface DesktopPetBubbleBridge {
   getActivity(): Promise<DesktopPetBubblePayload>;
   onActivity(callback: (payload: DesktopPetBubblePayload) => void): () => void;
   openSession(sessionId: string): void;
+  dismissSession(sessionId: string): void;
 }
 
 declare global {
@@ -26,6 +27,7 @@ declare global {
 interface BubbleLabels {
   status: Record<DesktopPetSessionState, string>;
   untitled: string;
+  close: string;
 }
 
 const LABELS: Record<Locale, BubbleLabels> = {
@@ -38,6 +40,7 @@ const LABELS: Record<Locale, BubbleLabels> = {
       waiting: "等待中",
     },
     untitled: "未命名会话",
+    close: "关闭并移除该会话",
   },
   "en-US": {
     status: {
@@ -48,6 +51,7 @@ const LABELS: Record<Locale, BubbleLabels> = {
       waiting: "Waiting",
     },
     untitled: "Untitled session",
+    close: "Dismiss this session",
   },
 };
 
@@ -55,6 +59,7 @@ function createRow(
   session: DesktopPetSessionActivity,
   labels: BubbleLabels,
   openSession: (sessionId: string) => void,
+  dismissSession: (sessionId: string) => void,
 ): HTMLLIElement {
   const row = document.createElement("li");
   row.className = "row";
@@ -81,7 +86,18 @@ function createRow(
     detail.textContent = session.detail;
     body.append(detail);
   }
-  row.append(dot, body);
+  // 关闭按钮：唯一的移除路径。stopPropagation 确保点击关闭不会同时触发行跳转。
+  const close = document.createElement("button");
+  close.className = "close";
+  close.type = "button";
+  close.textContent = "×";
+  close.title = labels.close;
+  close.setAttribute("aria-label", labels.close);
+  close.addEventListener("click", (event) => {
+    event.stopPropagation();
+    dismissSession(session.sessionId);
+  });
+  row.append(dot, body, close);
   return row;
 }
 
@@ -98,7 +114,12 @@ function render(payload: DesktopPetBubblePayload): void {
   // 全部走 textContent 构造：会话标题/摘要来自用户与模型内容，绝不拼接 HTML。
   list.replaceChildren(
     ...payload.activity.sessions.map((session) =>
-      createRow(session, labels, (sessionId) => bridge.openSession(sessionId)),
+      createRow(
+        session,
+        labels,
+        (sessionId) => bridge.openSession(sessionId),
+        (sessionId) => bridge.dismissSession(sessionId),
+      ),
     ),
   );
 }

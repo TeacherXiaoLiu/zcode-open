@@ -48,6 +48,7 @@ function controllerMock() {
       locale: "zh-CN",
     })),
     openSession: vi.fn(),
+    dismissSession: vi.fn(),
     getActivePetId: vi.fn(() => "otter"),
     switchActivePet: vi.fn(async () => undefined),
     openMainWindow: vi.fn(),
@@ -220,6 +221,17 @@ describe("桌宠管理 IPC 发起方权限", () => {
     send(PlatformChannels.PetBubbleOpenSession, event(bubbleId), "sess_1");
     expect(controller.openSession).toHaveBeenCalledWith("sess_1");
   });
+
+  it("气泡关闭按钮只接受气泡窗口的合法 sessionId", () => {
+    for (const id of [applicationId, petId, 50])
+      send(PlatformChannels.PetBubbleDismissSession, event(id), "sess_1");
+    for (const value of [undefined, null, 1, {}, "", "x".repeat(129)])
+      send(PlatformChannels.PetBubbleDismissSession, event(bubbleId), value);
+    send(PlatformChannels.PetBubbleDismissSession, event(bubbleId, true), "sess_1");
+    expect(controller.dismissSession).not.toHaveBeenCalled();
+    send(PlatformChannels.PetBubbleDismissSession, event(bubbleId), "sess_1");
+    expect(controller.dismissSession).toHaveBeenCalledWith("sess_1");
+  });
 });
 
 describe("桌宠 IPC 严格载荷验证", () => {
@@ -387,8 +399,8 @@ describe("桌宠 IPC 严格载荷验证", () => {
   it("反注册仅移除本模块的 handler/listener，服务生命周期不由 IPC 隐式取消", () => {
     // 9 个管理/宠物 handler + 1 个气泡活动拉取（三期）。
     expect(ipc.handles.size).toBe(10);
-    // 5 个事件监听 + 1 个气泡点击跳转（三期）。
-    expect(ipc.listeners.size).toBe(6);
+    // 5 个事件监听 + 气泡点击跳转 / 关闭移除各 1（三期）。
+    expect(ipc.listeners.size).toBe(7);
     dispose?.();
     dispose = undefined;
     expect(ipc.handles.size).toBe(0);

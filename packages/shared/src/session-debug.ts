@@ -21,10 +21,15 @@ export const sessionDebugRoundSchema = z
     recordedAt: count,
     usage: debugUsageSchema,
     hitRate: count.nullable(),
+    /** 请求总时长（含首 token 等待）；旧 CLI 不下发时为 null。 */
+    durationMs: count.nullable(),
+    /** 首 token 等待（TTFT）；旧 CLI 不下发时为 null。 */
+    timeToFirstContentMs: count.nullable(),
     generationDurationMs: count.nullable(),
     tokensPerSecond: count.nullable(),
   })
   .strict();
+export type SessionDebugRound = z.infer<typeof sessionDebugRoundSchema>;
 export const sessionDebugNetworkEntrySchema = z
   .object({
     eventKey: z.string(),

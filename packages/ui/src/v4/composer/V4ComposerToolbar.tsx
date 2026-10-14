@@ -55,6 +55,11 @@ import {
 import { ThoughtLevelCycleControl } from "@/chat-input-toolbar/ThoughtLevelCycleControl.js";
 import { getNextThoughtLevelValue } from "@/chat-input-toolbar/thoughtLevelOptions.js";
 import type { V4ComposerConfigPicker } from "@/v4/composer/configPickerState.js";
+import {
+  ComposerOutputSpeed,
+  type ComposerOutputSpeedStatsSource,
+} from "@/v4/composer/ComposerOutputSpeed.js";
+import type { OutputSpeedMeter } from "@/v4/outputSpeedMeter.js";
 import { useToolbarShortcutBindings } from "@/v4/composer/toolbarShortcuts.js";
 import {
   resolveModelSelectTriggerDisplay,
@@ -420,6 +425,15 @@ export interface V4ComposerToolbarProps {
     sourceModel: ModelSelectionSource | null,
   ) => Promise<void> | void;
   onSendCompressionCommand?: (command: string) => void;
+  /**
+   * 输出速度标签（本地定制）：meter 来自会话 lease 的输出速度计量器，stats 为
+   * "会话统计"弹窗的数据源。整个对象由 ConversationComposer useMemo 组装，保持引用稳定，
+   * 不把 snapshot 或每帧变化的值带进本 memo 子树。
+   */
+  outputSpeed?: {
+    meter: OutputSpeedMeter | null;
+    stats: ComposerOutputSpeedStatsSource | null;
+  } | null;
 }
 
 /** 模型 / 思考深度 / context usage 簇（渲染在发送键左侧，与旧 UI 同位）。 */
@@ -448,6 +462,7 @@ function V4ComposerModelControlsImpl({
   onSelectThought,
   onSendCompressionCommand,
   onRecoverCustomModelSelection,
+  outputSpeed = null,
 }: V4ComposerToolbarProps) {
   const { intl, locale } = useZCodeIntl();
   const { openCodingPlanUpgrade } = useCodingPlanUpgradeDialog();
@@ -1085,11 +1100,16 @@ function V4ComposerModelControlsImpl({
         data-usage-max={usage?.contextWindow?.maxTokens ?? ""}
         className="hidden"
       />
+      {/* 输出速度标签（本地定制）：紧靠上下文图标、与模型/思考深度同一行；点击展开会话统计。 */}
+      {outputSpeed ? (
+        <ComposerOutputSpeed meter={outputSpeed.meter} stats={outputSpeed.stats} />
+      ) : null}
       {/* Highspeed 卡激活即锁定模型；不能等动效交接完成才隐藏，否则 usage 圈圈会短暂闪现。 */}
       {!modelLocked ? (
         <ChatContextUsage
           codingPlanUsageRemaining={codingPlanUsageRemaining}
           taskUsage={taskUsage}
+          cumulativeUsage={usage?.cumulative ?? null}
           startPlanBalance={contextStartPlanBalance}
           selectedProvider={displayProvider}
           intl={intl}
