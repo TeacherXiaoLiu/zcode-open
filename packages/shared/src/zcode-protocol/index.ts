@@ -1917,6 +1917,9 @@ export const zcodeSessionCreateParamsSchema = z
     persistence: zcodeSessionPersistenceSchema.optional(),
     thoughtLevel: nonEmptyString.optional(),
     titleGenerationEnabled: z.boolean().optional(),
+    // 定制（本地分支）：会话交接（specs/session-handoff.md）的初始标题——首次持久化时
+    // 随会话一并写入（来源非 custom），不被 titleFromInput 决定。
+    initialTitle: nonEmptyString.optional(),
     mcpServers: z.array(zcodeProtocolMcpServerSchema).optional(),
     toolAllowlist: z.array(nonEmptyString).optional(),
     toolDenylist: z.array(nonEmptyString).optional(),
@@ -2084,6 +2087,8 @@ export const zcodeSessionRuntimePreferencesResultSchema = z
         enabled: z.boolean(),
         firstRound: z.number().int(),
         interval: z.number().int(),
+        // 标题生成模型（本地定制）：null/缺席 = 跟随会话当前模型；旧 Host 不回该字段时同样按缺席处理。
+        modelSelection: modelSelectionSchema.nullish(),
       })
       .optional(),
   })
@@ -2617,6 +2622,8 @@ export const zcodeSessionTitleRefreshPreferencesSchema = z
     enabled: z.boolean(),
     firstRound: z.number().int().min(1).max(50),
     interval: z.number().int().min(1).max(100),
+    // 标题生成模型（本地定制，可选）：null/缺席 = 跟随会话当前模型。
+    modelSelection: modelSelectionSchema.nullish(),
   })
   .strict();
 export type ZCodeSessionTitleRefreshPreferences = z.infer<

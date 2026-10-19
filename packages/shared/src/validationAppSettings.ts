@@ -13,6 +13,7 @@ import {
   embeddedBrowserViewportPreferenceSchema,
 } from "./browser-use/command-metadata.js";
 import { providerFamilyConnectionSelectionSettingsSchema } from "./provider-family-connection-selection.js";
+import { modelSelectionSchema } from "./model-selection.js";
 
 /** 引导职业枚举；单独导出供 onboarding 记录回填 settings 时做窄化校验。 */
 const appSettingsOccupationSchema = z.enum([
@@ -526,6 +527,8 @@ const appSettingsObjectSchema = z.object({
   sessionTitleRefreshEnabled: z.boolean().default(true),
   sessionTitleRefreshFirstRound: z.number().int().min(1).max(50).default(3),
   sessionTitleRefreshInterval: z.number().int().min(1).max(100).default(5),
+  // 标题生成模型（本地定制）：null/缺席 = 跟随会话当前模型；单字段原子对象，替换式提交。
+  sessionTitleModelSelection: modelSelectionSchema.nullish(),
   lastWorkspaceSession: z.array(appWorkspaceSessionEntrySchema).default([]),
   lastActiveTabIndex: z.number().int().nonnegative().default(0),
   lastActiveTaskByWorkspace: z.record(z.string(), z.string()).optional(),
@@ -629,6 +632,7 @@ export const appSettingsPatchSchema = z.object({
   sessionTitleRefreshEnabled: z.boolean().optional(),
   sessionTitleRefreshFirstRound: z.number().int().min(1).max(50).optional(),
   sessionTitleRefreshInterval: z.number().int().min(1).max(100).optional(),
+  sessionTitleModelSelection: modelSelectionSchema.nullish(),
   lastWorkspaceSession: z.array(appWorkspaceSessionEntrySchema).optional(),
   lastActiveTabIndex: z.number().int().nonnegative().optional(),
   lastActiveTaskByWorkspace: z.record(z.string(), z.string()).optional(),

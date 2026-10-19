@@ -2638,6 +2638,12 @@ const enUS: Record<string, string> = {
   "settings.sessionTitleRefresh.interval": "Refresh interval",
   "settings.sessionTitleRefresh.intervalDescription":
     "Re-summarize the title every this many user rounds thereafter (1-100).",
+  "settings.sessionTitleRefresh.model": "Title generation model",
+  "settings.sessionTitleRefresh.modelDescription":
+    "Leave empty to follow the session's current model. Some models do not support disabling reasoning; specify a compatible model here.",
+  "settings.sessionTitleRefresh.modelPlaceholder": "provider/model",
+  "settings.sessionTitleRefresh.modelInvalid":
+    "Invalid format: use provider/model or provider/model$reasoningLevel.",
   "settings.sessionTitleRefresh.currentRule": "Current rule",
   "settings.sessionTitleRefresh.rule":
     "Refresh every {interval} rounds, starting from round {firstRound}",
@@ -7536,6 +7542,20 @@ const enUS: Record<string, string> = {
     "The Highspeed card has expired. The rest of this turn will continue with the original model.",
   "chat.highspeed.requestFailedFallback":
     "Highspeed is temporarily unavailable. The rest of this turn will continue with the original model.",
+  // Session handoff (specs/session-handoff.md)
+  "chat.handoff.button": "New session from this one",
+  "chat.handoff.pending": "Creating handoff session…",
+  "chat.handoff.disabled.notInteractive": "Only an interactive root session can be handed off",
+  "chat.handoff.disabled.busy": "The session is running; wait for this turn to finish",
+  "chat.handoff.disabled.pendingInteraction": "Resolve the pending confirmation first",
+  "chat.handoff.disabled.readToolUnavailable": "This session cannot read context",
+  "chat.handoff.disabled.noSourceText": "This session has no transcript to hand off yet",
+  "chat.handoff.disabled.unsupported": "This CLI version does not support session handoff",
+  "chat.handoff.executionUnavailable": "No usable execution config; cannot hand off",
+  "chat.handoff.failed": "Session handoff failed: {reason}",
+  "chat.handoff.created": "Handoff session created ({time})",
+  "chat.handoff.createdElsewhere":
+    "Handoff session created, but this pane has switched so navigation was skipped; open it from the session list",
   "globalNotice.highspeed.title": "Highspeed run completed",
   "globalNotice.highspeed.summary": "{tokens} output tokens · {duration}s",
   "globalNotice.highspeed.tagline": "Share a Highspeed moment",

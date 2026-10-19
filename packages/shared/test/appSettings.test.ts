@@ -318,4 +318,26 @@ describe("sessionTitleRefresh 设置（本地定制）", () => {
     expect(settings.sessionTitleRefreshFirstRound).toBe(3);
     expect(settings.sessionTitleRefreshInterval).toBe(5);
   });
+
+  it("标题生成模型：缺席/null = 跟随会话当前模型，补丁可单独替换", () => {
+    expect(appSettingsSchema.parse({}).sessionTitleModelSelection).toBeUndefined();
+    expect(
+      appSettingsSchema.parse({ sessionTitleModelSelection: null }).sessionTitleModelSelection,
+    ).toBeNull();
+    const modelSelection = {
+      providerId: "opencode-go-responses",
+      modelId: "muse-spark-1.3-contributor",
+    };
+    // 单字段提交：patch 只包含该字段，浅合并不会重置其余刷新参数。
+    expect(appSettingsPatchSchema.parse({ sessionTitleModelSelection: modelSelection })).toEqual({
+      sessionTitleModelSelection: modelSelection,
+    });
+    expect(appSettingsPatchSchema.parse({ sessionTitleModelSelection: null })).toEqual({
+      sessionTitleModelSelection: null,
+    });
+    // 结构非法的选择在设置边界被拒绝（strict 模型选择 schema）。
+    expect(
+      appSettingsPatchSchema.safeParse({ sessionTitleModelSelection: { providerId: "" } }).success,
+    ).toBe(false);
+  });
 });

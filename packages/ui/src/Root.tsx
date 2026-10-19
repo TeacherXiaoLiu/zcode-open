@@ -476,6 +476,8 @@ function RootInner({
       enabled: appSettings.sessionTitleRefreshEnabled !== false,
       firstRound: appSettings.sessionTitleRefreshFirstRound ?? 3,
       interval: appSettings.sessionTitleRefreshInterval ?? 5,
+      // 标题生成模型（本地定制）：null = 跟随会话当前模型。
+      modelSelection: appSettings.sessionTitleModelSelection ?? null,
     };
     void services.zcodeAgentService
       .syncAppRuntimePreferences({
@@ -503,6 +505,7 @@ function RootInner({
     appSettings?.sessionTitleRefreshEnabled,
     appSettings?.sessionTitleRefreshFirstRound,
     appSettings?.sessionTitleRefreshInterval,
+    appSettings?.sessionTitleModelSelection,
     services.botsService,
     services.zcodeAgentService,
   ]);

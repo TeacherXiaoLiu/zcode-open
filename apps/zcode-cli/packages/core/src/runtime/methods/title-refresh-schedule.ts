@@ -1,3 +1,5 @@
+import type { ModelSelection } from "../deps.js";
+
 /**
  * 会话标题定期刷新——调度纯逻辑（本地定制）。
  *
@@ -18,6 +20,8 @@ export interface SessionTitleRefreshConfig {
   firstRound: number;
   /** 之后每多少轮刷新一次。 */
   interval: number;
+  /** 标题生成模型（可选）：首轮生成 / 定期刷新 / 手动生成统一使用；null/缺席 = 跟随会话当前模型。 */
+  modelSelection?: ModelSelection | null;
 }
 
 /** 均衡档：与 DSH 生态参考实现（dsh-session-title-refresh）的推荐档一致。 */
@@ -57,8 +61,11 @@ export function normalizeSessionTitleRefreshConfig(
     return undefined;
   };
   const enabled = read("enabled");
+  // 标题生成模型：只透传显式提供的值；null/缺席都不写入（读取方按「跟随会话当前模型」处理）。
+  const modelSelection = read("modelSelection") as ModelSelection | undefined;
   return {
     enabled: typeof enabled === "boolean" ? enabled : DEFAULT_SESSION_TITLE_REFRESH.enabled,
+    ...(modelSelection ? { modelSelection } : {}),
     firstRound: clampInt(
       read("firstRound"),
       HARD_BOUNDS.firstRound[0],

@@ -147,7 +147,8 @@ export function useSettings() {
         typeof patch.modelIoFullRetentionEnabled === "boolean" ||
         patch.sessionTitleRefreshEnabled !== undefined ||
         patch.sessionTitleRefreshFirstRound !== undefined ||
-        patch.sessionTitleRefreshInterval !== undefined
+        patch.sessionTitleRefreshInterval !== undefined ||
+        patch.sessionTitleModelSelection !== undefined
       ) {
         const preferences = {
           askUserQuestionAutoResolutionEnabled:
@@ -170,6 +171,12 @@ export function useSettings() {
               patch.sessionTitleRefreshInterval ??
               settingsStore.snapshot.settings?.sessionTitleRefreshInterval ??
               5,
+            // 标题生成模型（本地定制）：显式传 null 表示改回「跟随会话当前模型」，
+            // 因此不能用 ?? 回退旧值——null 是合法提交值，只有 undefined 才表示本次未提交该字段。
+            modelSelection:
+              patch.sessionTitleModelSelection !== undefined
+                ? patch.sessionTitleModelSelection
+                : (settingsStore.snapshot.settings?.sessionTitleModelSelection ?? null),
           },
         };
         const syncResults = await Promise.allSettled([

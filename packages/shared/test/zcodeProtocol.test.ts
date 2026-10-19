@@ -33,6 +33,8 @@ import {
   zcodeWorkspaceUpdateInteractionPreferencesResultSchema,
   zcodeWorkspaceUpdateModelIoPreferencesParamsSchema,
   zcodeWorkspaceUpdateModelIoPreferencesResultSchema,
+  zcodeSessionTitleRefreshPreferencesSchema,
+  zcodeWorkspaceUpdateSessionTitleRefreshPreferencesParamsSchema,
   zcodeAutomationCreateParamsSchema,
   zcodeAutomationCheckTaskBindingParamsSchema,
   zcodeAutomationCheckTaskBindingResultSchema,
@@ -2751,6 +2753,65 @@ describe("ZCode Protocol", () => {
         modelContextBudgetStrategy: "unknown",
       }),
     ).toThrow();
+  });
+
+  it("carries the optional session title model through title refresh preferences", () => {
+    // 本地定制 specs/session-title-auto-refresh.md「标题生成模型（可选指定）」：
+    // PUSH/PULL 两侧都随既有的 sessionTitleRefresh 对象携带 modelSelection。
+    const modelSelection = {
+      providerId: "opencode-go-responses",
+      modelId: "muse-spark-1.3-contributor",
+      options: { reasoningLevel: "high" },
+    };
+    // 缺席/null 合法：表示跟随会话当前模型。
+    expect(
+      zcodeSessionTitleRefreshPreferencesSchema.parse({
+        enabled: true,
+        firstRound: 3,
+        interval: 5,
+      }).modelSelection,
+    ).toBeUndefined();
+    expect(
+      zcodeSessionTitleRefreshPreferencesSchema.parse({
+        enabled: true,
+        firstRound: 3,
+        interval: 5,
+        modelSelection: null,
+      }).modelSelection,
+    ).toBeNull();
+    expect(
+      zcodeWorkspaceUpdateSessionTitleRefreshPreferencesParamsSchema.parse({
+        workspace,
+        preferences: { enabled: true, firstRound: 3, interval: 5, modelSelection },
+      }),
+    ).toEqual({
+      workspace,
+      preferences: { enabled: true, firstRound: 3, interval: 5, modelSelection },
+    });
+    // 结构非法或字段拼错的 modelSelection 仍在协议边界被拒绝（strict）。
+    expect(() =>
+      zcodeSessionTitleRefreshPreferencesSchema.parse({
+        enabled: true,
+        firstRound: 3,
+        interval: 5,
+        modelSelection: { providerId: "", modelId: "muse-spark" },
+      }),
+    ).toThrow();
+    expect(() =>
+      zcodeSessionTitleRefreshPreferencesSchema.parse({
+        enabled: true,
+        firstRound: 3,
+        interval: 5,
+        modelSelection: { providerId: "opencode-go-responses", modelId: "muse-spark", ignored: 1 },
+      }),
+    ).toThrow();
+    // PULL 结果同样保留 modelSelection（strict schema 不得把它剥掉或拒绝）。
+    expect(
+      zcodeSessionRuntimePreferencesResultSchema.parse({
+        nativeSearchEnhancementsEnabled: true,
+        sessionTitleRefresh: { enabled: true, firstRound: 3, interval: 5, modelSelection },
+      }).sessionTitleRefresh?.modelSelection,
+    ).toEqual(modelSelection);
   });
 
   it("accepts turn.completed cache stats and history round count from runtime events", () => {

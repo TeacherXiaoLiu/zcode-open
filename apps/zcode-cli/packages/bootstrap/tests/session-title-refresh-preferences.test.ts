@@ -63,4 +63,47 @@ describe("session title refresh runtime preferences", () => {
       }),
     ).rejects.toThrow();
   });
+
+  it("passes an explicit title generation model through to resident apps and the cache", async () => {
+    const setSessionTitleRefreshConfig = vi.fn();
+    const context = {
+      appRuntimePreferences: {
+        askUserQuestionAutoResolutionEnabled: true,
+        modelIoFullRetentionEnabled: false,
+        offPeakToolEnabled: false,
+      },
+      sessions: new Map([
+        [
+          "sess_title_refresh_model",
+          {
+            app: createFakeApp(undefined, { setSessionTitleRefreshConfig }),
+          },
+        ],
+      ]),
+    } as unknown as ZCodeProtocolAgentServerContext;
+    // 本地定制：显式指定标题生成模型（见 spec「标题生成模型（可选指定）」）；
+    // 随既有的 preferences 对象同行，runtime 侧由 setSessionTitleRefreshConfig 热更新。
+    const modelSelection = {
+      providerId: "opencode-go-responses",
+      modelId: "muse-spark-1.3-contributor",
+    };
+
+    await updateSessionTitleRefreshPreferences(context, {
+      workspace,
+      preferences: { enabled: true, firstRound: 3, interval: 5, modelSelection },
+    });
+
+    expect(context.appRuntimePreferences.sessionTitleRefresh).toEqual({
+      enabled: true,
+      firstRound: 3,
+      interval: 5,
+      modelSelection,
+    });
+    expect(setSessionTitleRefreshConfig).toHaveBeenCalledWith({
+      enabled: true,
+      firstRound: 3,
+      interval: 5,
+      modelSelection,
+    });
+  });
 });

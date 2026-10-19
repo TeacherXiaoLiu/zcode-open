@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { modelSelectionSchema } from "./model-selection.js";
 
 export const APP_RUNTIME_PREFERENCES_CHANGED_BROADCAST_CHANNEL = "settings:app-runtime-preferences";
 export const ASK_USER_QUESTION_E2E_CLOCK_SCALE_ENV = "ZCODE_E2E_ASK_USER_QUESTION_CLOCK_SCALE";
@@ -13,6 +14,8 @@ export const appRuntimePreferencesChangedBroadcastPayloadSchema = z
         enabled: z.boolean(),
         firstRound: z.number().int(),
         interval: z.number().int(),
+        // 标题生成模型（本地定制）：跨窗口广播必须保留该字段，null/缺席 = 跟随会话当前模型。
+        modelSelection: modelSelectionSchema.nullish(),
       })
       .optional(),
   })

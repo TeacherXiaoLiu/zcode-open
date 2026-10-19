@@ -63,6 +63,28 @@
   把候选标题返回给对话框**填入输入框**，由用户确认/编辑后按既有的重命名链路
   （custom 来源）保存。
 
+## 标题生成模型（可选指定）
+
+背景：标题走辅助调用档位（`auxiliaryModelOptions` 取该模型推理档位的最低项 + 输出上限），
+部分模型（如 `opencode-go-responses/muse-spark`）不接受最低推理档，provider 直接 400
+（`invalid_request`）。原解析只认「会话当前模型」，会让这类会话的所有标题生成静默失败。
+允许显式指定标题模型即可绕开不兼容档位。
+
+| 字段 | 默认 | 说明 |
+|---|---|---|
+| `modelSelection` | `null` | 标题生成模型；`null`/缺席 = 跟随会话当前模型 |
+
+- **生效范围**：首轮标题生成、定期刷新、手动「生成新标题」**全部**使用它（单一解析点：
+  `title-generation-sidecar.generateTitleCandidateImpl`）。
+- **解析优先级**：标题设置里的 `modelSelection` → `config.titleGeneration.modelSelection`
+  （TUI/显式注入）→ 会话当前模型。
+- **存储与通道**：随既有的标题设置对象同行，不新增协议方法——
+  `workspace/updateSessionTitleRefreshPreferences`（PUSH）+ `session/requestRuntimePreferences`
+  （PULL）新增同名字段；设置落 `AppSettings.sessionTitleModelSelection`（单字段原子对象，
+  替换式提交，不受浅合并影响）。
+- **热更新语义**：与刷新参数一致——写属性即对**后续**标题生成生效，不补跑、不改已生成标题。
+- **失败处理不变**：仍按上文的静默回退（保留旧标题 / 保留对话框原输入）。
+
 ## 验收场景
 
 1. 第 3 个真实用户轮次完成后，标题被刷新（侧栏更新）；第 4–7 轮不刷新；第 8 轮再刷新。

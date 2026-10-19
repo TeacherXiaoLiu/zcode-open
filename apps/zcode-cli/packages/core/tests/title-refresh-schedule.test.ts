@@ -36,6 +36,25 @@ describe("normalizeSessionTitleRefreshConfig", () => {
     );
     expect(merged).toEqual({ enabled: true, firstRound: 3, interval: 10 });
   });
+
+  it("passes through modelSelection only when explicitly provided", () => {
+    // 有值保留：低优先级来源的模型不被高优先级来源抹掉（高优先级未提供该字段）。
+    const modelSelection = {
+      providerId: "opencode-go-responses",
+      modelId: "muse-spark-1.3-contributor",
+    };
+    expect(normalizeSessionTitleRefreshConfig({ modelSelection }).modelSelection).toEqual(
+      modelSelection,
+    );
+    expect(
+      normalizeSessionTitleRefreshConfig({ modelSelection }, { firstRound: 4 }).modelSelection,
+    ).toEqual(modelSelection);
+    // null/缺席都不写入：读取方按「跟随会话当前模型」处理，不会留下空字段。
+    expect("modelSelection" in normalizeSessionTitleRefreshConfig({ modelSelection: null })).toBe(
+      false,
+    );
+    expect("modelSelection" in normalizeSessionTitleRefreshConfig({})).toBe(false);
+  });
 });
 
 describe("isTitleRefreshDueAtRound", () => {

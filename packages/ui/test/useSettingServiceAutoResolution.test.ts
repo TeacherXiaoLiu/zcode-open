@@ -82,20 +82,22 @@ describe("useSettings AskUserQuestion runtime preference", () => {
     expect(settingService.update).toHaveBeenCalledWith({
       askUserQuestionAutoResolutionEnabled: false,
     });
-    expect(zcodeAgentService.syncAppRuntimePreferences).toHaveBeenCalledWith({
+    // 本地定制：标题刷新参数与运行时偏好同行；modelSelection null = 跟随会话当前模型。
+    const expectedPreferences = {
       askUserQuestionAutoResolutionEnabled: false,
       modelIoFullRetentionEnabled: false,
-    });
-    expect(botsService.syncAppRuntimePreferences).toHaveBeenCalledWith({
-      askUserQuestionAutoResolutionEnabled: false,
-      modelIoFullRetentionEnabled: false,
-    });
+      sessionTitleRefresh: {
+        enabled: true,
+        firstRound: 3,
+        interval: 5,
+        modelSelection: null,
+      },
+    };
+    expect(zcodeAgentService.syncAppRuntimePreferences).toHaveBeenCalledWith(expectedPreferences);
+    expect(botsService.syncAppRuntimePreferences).toHaveBeenCalledWith(expectedPreferences);
     expect(broadcastService.send).toHaveBeenCalledWith({
       channel: APP_RUNTIME_PREFERENCES_CHANGED_BROADCAST_CHANNEL,
-      payload: {
-        askUserQuestionAutoResolutionEnabled: false,
-        modelIoFullRetentionEnabled: false,
-      },
+      payload: expectedPreferences,
     });
     expect(zcodeAgentService.syncAppRuntimePreferences.mock.invocationCallOrder[0]).toBeLessThan(
       broadcastService.send.mock.invocationCallOrder[0] ?? 0,
@@ -122,6 +124,12 @@ describe("useSettings AskUserQuestion runtime preference", () => {
     const preferences = {
       askUserQuestionAutoResolutionEnabled: true,
       modelIoFullRetentionEnabled: true,
+      sessionTitleRefresh: {
+        enabled: true,
+        firstRound: 3,
+        interval: 5,
+        modelSelection: null,
+      },
     };
     expect(zcodeAgentService.syncAppRuntimePreferences).toHaveBeenCalledWith(preferences);
     expect(botsService.syncAppRuntimePreferences).toHaveBeenCalledWith(preferences);

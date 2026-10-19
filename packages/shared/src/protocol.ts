@@ -6,6 +6,7 @@ import type { ZCodeProvider } from "./zcode-task-types-core.js";
 import type { WorkspacePurpose } from "./workspacePurpose.js";
 import type { DynamicWorkflowMode } from "./dynamic-workflow-feature.js";
 import type { EmbeddedBrowserViewportPreference } from "./browser-use/command-metadata.js";
+import type { ModelSelection } from "./model-selection.js";
 
 // ── Domain types ──
 
@@ -372,6 +373,11 @@ export interface AppSettings {
   sessionTitleRefreshFirstRound?: number;
   /** 之后每多少轮刷新一次（1-100）。 */
   sessionTitleRefreshInterval?: number;
+  /**
+   * 标题生成模型（本地定制，specs/session-title-auto-refresh.md「标题生成模型（可选指定）」）：
+   * 单个原子对象，null/缺席 = 跟随会话当前模型；首轮生成 / 定期刷新 / 手动生成统一使用。
+   */
+  sessionTitleModelSelection?: ModelSelection | null;
   onboardingOccupation?:
     | "office"
     | "developer"

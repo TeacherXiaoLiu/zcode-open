@@ -602,6 +602,8 @@ export interface ZCodeAgentAppRuntimePreferences {
     enabled: boolean;
     firstRound: number;
     interval: number;
+    /** 标题生成模型（本地定制）：null/缺席 = 跟随会话当前模型。 */
+    modelSelection?: ModelSelection | null;
   };
 }
 

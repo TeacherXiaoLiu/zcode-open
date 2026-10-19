@@ -94,8 +94,11 @@ async function generateTitleCandidateImpl(
     traceContext: TraceContext;
   },
 ): Promise<{ modelSelection: ModelSelection; title: string; traceContext: TraceContext } | null> {
+  // 标题模型优先级：标题刷新设置（用户在设置里显式指定的 modelSelection）→ titleGeneration 显式注入 → 会话当前模型。
   const requestedModelSelection =
-    this.config.titleGeneration?.modelSelection ?? this.getSessionModelSelection();
+    this.sessionTitleRefreshConfig?.modelSelection ??
+    this.config.titleGeneration?.modelSelection ??
+    this.getSessionModelSelection();
   if (!requestedModelSelection) return null;
   const baseModel = createRuntimeModel(this, {
     selection: requestedModelSelection,
