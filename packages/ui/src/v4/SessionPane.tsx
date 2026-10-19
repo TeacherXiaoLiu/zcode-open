@@ -138,6 +138,7 @@ import {
   buildDraftCreateConfigPayload,
   useDraftConfigControl,
 } from "@/v4/composer/useDraftConfigControl.js";
+import { useSessionHandoff } from "@/v4/useSessionHandoff.js";
 import type { ModelSelectionSource } from "@/v4/composer/V4ComposerToolbar.js";
 import { formatModelChangeLabel } from "@/v4/composer/modelTriggerDisplay.js";
 import { resolveAppFollowupMode } from "@/v4/composer/followupModeSettings.js";
@@ -2088,6 +2089,40 @@ export function SessionPane({
     ],
   );
   dispatchCommandRef.current = dispatchCommand;
+
+  // 会话交接（specs/session-handoff.md）：把本 pane 的资格状态与发起函数注册给常驻顶栏入口。
+  // 首条消息在这里由客户端组装（已加载投影的正文），建会话与首发复用 createSession + firstInput。
+  const dispatchHandoffCreateSession = useCallback(
+    (payload: Record<string, unknown>) =>
+      dispatchCommand(
+        "createSession",
+        payload,
+        null,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        // 交接是会话级创建（与草稿首发同一归因口径），不继承草稿的 createSource。
+        "session",
+      ),
+    [dispatchCommand],
+  );
+  useSessionHandoff({
+    focused,
+    sessionId,
+    workspacePath,
+    ...(workspaceIdentity ? { workspaceIdentity } : {}),
+    readOnly,
+    selectionSideChat,
+    snapshot,
+    submission: createSubmissionFromComposer(),
+    dispatchCreateSession: dispatchHandoffCreateSession,
+    ...(onSessionCreated ? { onSessionCreated } : {}),
+    agentService: baseWorkspaceServices.zcodeAgentService,
+    intl,
+    locale,
+  });
 
   const handleFetchFileChanges = useCallback(
     (target: ConversationRowTarget, options: ConversationFileChangesRequestOptions) => {

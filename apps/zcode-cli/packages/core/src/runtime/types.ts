@@ -209,6 +209,13 @@ export interface AgentRuntimeConfig {
     timeoutMs?: number;
   };
   /**
+   * 定制（本地分支）：会话交接（specs/session-handoff.md）的初始标题。
+   * 首次持久化（persistSession）读它写 title/titleSource，替代 titleFromInput——
+   * 续号标题必须在这里写入，否则会被交接提示词正文覆盖成首条消息前 60 字。
+   * 来源固定 first_input（非 custom），因此后续定期刷新仍可覆盖它。
+   */
+  initialSessionTitle?: string;
+  /**
    * 定制（本地分支）：会话标题定期刷新参数的初始档（冷恢复/新会话从设置注入）。
    * 运行中由 setSessionTitleRefreshConfig 热更新；语义见 specs/session-title-auto-refresh.md。
    */

@@ -953,6 +953,46 @@ describe("AgentRuntime session persistence", () => {
     expect(store.createdSessions[0]?.titleSource).toBe("first_input");
   });
 
+  // 会话交接（specs/session-handoff.md）：首条消息是交接提示词，titleFromInput 会把它截成
+  // 标题、覆盖掉续号标题——显式初始标题必须优先，来源仍是非 custom（定期刷新因此仍可覆盖）。
+  it("persists the explicit initial session title ahead of titleFromInput", async () => {
+    const sessionId = createSessionId("runtime-persistence-initial-title");
+    const store = createRecordingSessionStore();
+    const eventStore = createTestSessionEventStore();
+    const runtime = createTestAgentRuntime(
+      sessionId,
+      {
+        agentName: "initial-title-test",
+        initialSessionTitle: "重构会话交接（续 2）",
+        mode: "build",
+        workingDirectory: "/tmp/zcode-runtime-initial-title",
+      },
+      {
+        eventStore,
+        modelFactory: createTestModelFactory({
+          async generateText() {
+            return {
+              text: "ok",
+              finishReason: "stop",
+              usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
+            };
+          },
+        } as never),
+        sessionStore: store,
+      },
+    );
+
+    await runtime.executeTurn("我需要在这个新会话里继续之前的工作。请先完成上下文交接，再继续执行。");
+
+    expect(store.createdSessions[0]?.title).toBe("重构会话交接（续 2）");
+    expect(store.createdSessions[0]?.titleSource).toBe("first_input");
+    const titleEvents = (await eventStore.getEvents(sessionId)).filter(
+      (event) => event.type === SessionEventType.SessionTitleUpdated,
+    );
+    expect(titleEvents).toHaveLength(1);
+    expect((titleEvents[0]?.payload as { title: string }).title).toBe("重构会话交接（续 2）");
+  });
+
   it("records production-safe session persistence lifecycle diagnostics", async () => {
     const sessionId = createSessionId("runtime-persistence-lifecycle-log");
     const store = createRecordingSessionStore();

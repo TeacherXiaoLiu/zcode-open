@@ -54,6 +54,10 @@ async function createSession(
     offPeakToolEnabled: payload.offPeakToolEnabled,
     dynamicWorkflowEnabled: payload.dynamicWorkflowEnabled,
     dynamicWorkflowMode: payload.dynamicWorkflowMode,
+    // 会话交接（specs/session-handoff.md）：初始标题与首轮命名开关必须进入 runtime 创建期
+    // 配置，因为它们决定**首次持久化**写什么标题——首发之后无法再补。缺省不下发。
+    ...(payload.initialTitle ? { initialTitle: payload.initialTitle } : {}),
+    ...(payload.titleGenerationEnabled === false ? { titleGenerationEnabled: false } : {}),
   });
   // createSession.config 消费——草稿态 UI 的先行选择（模型/思考深度/
   // 模式）在首发之前应用并补发事件，首条 turn 即用所选配置。必须在 firstInput 之前。

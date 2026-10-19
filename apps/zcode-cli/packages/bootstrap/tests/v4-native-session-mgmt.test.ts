@@ -155,6 +155,36 @@ describe("v4 原生 createSession", () => {
     });
   });
 
+  it("会话交接：透传初始标题与首轮命名开关（缺省不下发）", async () => {
+    const { host, createSessionRecord } = makeCreateHost(
+      makeRecord({ app: makeApp(), persistence: "deferred" }),
+    );
+
+    await new V4CommandExecutor(host).execute(
+      envelope(
+        "createSession",
+        {
+          workspaceId: "/w",
+          initialTitle: "重构会话交接（续 2）",
+          titleGenerationEnabled: false,
+        },
+        "handoff",
+      ),
+    );
+    expect(createSessionRecord).toHaveBeenCalledWith({
+      workspaceId: "/w",
+      initialTitle: "重构会话交接（续 2）",
+      titleGenerationEnabled: false,
+    });
+
+    // 普通创建不带这两个键：既有行为与既有断言不受影响。
+    const plain = makeCreateHost(makeRecord({ app: makeApp(), persistence: "deferred" }));
+    await new V4CommandExecutor(plain.host).execute(
+      envelope("createSession", { workspaceId: "/w" }, "plain"),
+    );
+    expect(plain.createSessionRecord).toHaveBeenCalledWith({ workspaceId: "/w" });
+  });
+
   it("创建 draft record 时透传 MCP runtime 配置", async () => {
     const record = makeRecord({ app: makeApp(), persistence: "deferred" });
     const { host, createSessionRecord } = makeCreateHost(record);

@@ -233,6 +233,8 @@ export const TID_COMPOSER_PROJECT_DETACH = "composer-project-detach";
 /** Composer workspace 菜单的非项目工作入口 */
 export const TID_COMPOSER_WORK_OUTSIDE_PROJECT = "composer-work-outside-project";
 // ChatView
+/** 常驻顶栏的「基于当前会话新开会话」（会话交接）按钮；仅交互式根会话存在 */
+export const TID_SESSION_HANDOFF = "session-handoff";
 /** 聊天视图容器 */
 export const TID_CHAT_VIEW = "chat-view";
 /** 聊天消息列表 */

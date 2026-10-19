@@ -59,6 +59,41 @@ R95C-01（accepted，pending 未晋级）：`conversation-session-model-provider
 
 核心口径：只有存在明确 setup、action、assert 的 case 才算自动化覆盖；仅仅在某条用户路径中经过相关状态，不算覆盖。
 
+## HANDOFF 会话交接覆盖
+
+规格见 [`specs/session-handoff.md`](../../specs/session-handoff.md)，case 见
+[case catalog](../conversation-session-case-catalog.md#handoff-基于当前会话新开会话会话交接)。
+当前状态（2026-10-14）：实现已落地（常驻顶栏入口 + `@zcode/shared/session-handoff` 纯逻辑 +
+`createSession.initialTitle`/`titleGenerationEnabled` + 首次持久化写续号标题）；HANDOFF-02 有独立
+断言，HANDOFF-03/05 只有部分断言，其余仍为 planned。**桌面 UI 主流程尚未人工验收，也没有 E2E。**
+
+已运行的验证：`packages/shared/test/session-handoff.test.ts`（31）、
+`packages/ui/test/sessionHandoffPane.test.ts`（12）、
+`packages/shared/test/zcodeProtocolV4Command.test.ts`（43）、
+`packages/core/tests/runtime-persistence.test.ts`（69，含显式初始标题优先）、
+`packages/bootstrap/tests/v4-native-session-mgmt.test.ts`（18，含字段透传）。
+
+| Case       | 覆盖状态 | 计划自动化                            | 关键断言                                                                       |
+| ---------- | -------- | ------------------------------------- | ------------------------------------------------------------------------------ |
+| HANDOFF-01 | planned  | Desktop manual-review/replay          | 新 root 无 parentID、自动跳转、首条为指令+摘录、实际调用 `ReadSessionContext`  |
+| HANDOFF-02 | covered  | 纯函数 focused unit                   | ≤8000 码位、不切代理对、只含正文、超长最新条保留尾部并标注、无空摘录           |
+| HANDOFF-03 | partial  | UI unit + CLI guard unit              | 非法态禁用并可服务端复拒；子代理/后台无入口；旧 CLI 明确提示不支持              |
+| HANDOFF-04 | planned  | protocol + runtime focused unit       | 完整继承模型/推理/mode/planEnabled/followup；不可用时失败不降级                |
+| HANDOFF-05 | partial  | persistence + runtime focused unit    | 续号标题首次持久化即写入且非 custom；首轮不被覆盖；网格到达时仍刷新            |
+| HANDOFF-06 | planned  | adapter 故障注入                      | 提交前失败无持久半成品且旧会话不变；提交后失败保留会话与首条                    |
+| HANDOFF-07 | planned  | CommandInbox + 持久化恢复 focused     | 同一 commandId 只产生一个新会话；幂等凭据在新会话；旧会话无命令事实            |
+| HANDOFF-08 | planned  | UI 编排 unit                          | 迟到结果不串数据、不抢导航，仍可打开已创建会话                                  |
+| HANDOFF-09 | planned  | 工具集成 + replay                     | 工具 not_found/failed/truncated 时新会话诚实说明，不伪造完整接手                 |
+| HANDOFF-10 | planned  | 协议/恢复 + 代表性 Desktop E2E        | 两种交付语义各自成立；identity 路由不丢失                                       |
+
+已覆盖部分（HANDOFF-02）：摘录预算按 Unicode 码位、代理对不切断、最新超长条保留尾部并标注、
+空摘录不建会话；HANDOFF-03 只覆盖了 UI 侧禁用原因映射（busy/pendingInteraction/无正文/非交互根
+会话），**服务端对旧会话的复拒与旧 CLI 版本判定没有实现**（协议面不含旧会话引用，也没有 CLI 能力位）；
+HANDOFF-05 只覆盖"显式初始标题优先 + titleSource 非 custom"，刷新网格断言未补。
+
+剪枝理由同 case catalog。新增 E2E 先进 `manual-review/pending`，需人工复核后才 promotion；
+不自动晋级正式 suite 或 Docker 准入。
+
 ## 后台 Bash 输出详情
 
 BGV04 子会话用例补测 publisher 释放后重新订阅的冷恢复路径：旧 Bash 仍由祖先 adapter 管理，

@@ -3415,6 +3415,12 @@ async function createRecord(
       // 这里补一份默认配置开启；具体是否生成仍由 runtime 按 parent/taskType/turnNumber 把关。
       // automation 执行会话显式关闭二次命名，避免回答内容覆盖原始用户 query 标题。
       titleGeneration: params.titleGenerationEnabled === false ? { enabled: false } : {},
+      // 定制（本地分支）：会话交接的初始标题（specs/session-handoff.md）。首次持久化
+      // （core persistSession）读它写 title/titleSource，替代 titleFromInput——否则续号
+      // 标题会在首条消息落盘时被交接提示词文本覆盖。只在 create 参数携带时注入。
+      ...("initialTitle" in params && params.initialTitle
+        ? { initialSessionTitle: params.initialTitle }
+        : {}),
       // 本地定制：标题刷新参数随会话创建/恢复注入（resident 期由 PUSH 热更新覆盖）；
       // 缺席时不写入，runtime 读取点回退默认档。
       ...(startupPreferences.sessionTitleRefresh

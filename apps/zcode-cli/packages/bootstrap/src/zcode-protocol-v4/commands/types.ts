@@ -278,6 +278,13 @@ export interface V4CommandCoreHost {
     dynamicWorkflowEnabled?: boolean;
     /** 与布尔同行的灰度 mode（launch.md「On demand: activation」）；缺省按 alwaysOn。 */
     dynamicWorkflowMode?: DynamicWorkflowMode;
+    /**
+     * 会话交接（specs/session-handoff.md）的初始标题：首次持久化时随会话一并写入
+     * （来源非 custom，后续定期刷新仍可覆盖）；缺省 = 沿用既有 titleFromInput。
+     */
+    initialTitle?: string;
+    /** false = 关闭该会话首轮自动命名（定期刷新不受影响）；缺省 = 既有行为。 */
+    titleGenerationEnabled?: boolean;
   }): Promise<{ sessionId: string }>;
   /** 从父会话稳定落盘边界创建隐藏 selection_side_chat child。 */
   createSelectionSideSession?(

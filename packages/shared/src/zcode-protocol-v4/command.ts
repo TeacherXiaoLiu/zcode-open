@@ -74,6 +74,15 @@ export const commandPayloadSchemas = {
     dynamicWorkflowEnabled: z.boolean().optional(),
     // 灰度 mode 与布尔同行（launch.md「On demand: activation」）；旧 CLI 的 z.object 静默丢弃。
     dynamicWorkflowMode: z.enum(DYNAMIC_WORKFLOW_MODES).optional(),
+    // 定制（本地分支）：会话交接（specs/session-handoff.md）的初始标题。
+    // 在**首次持久化时**随会话一并写入，来源非 custom——既不被 titleFromInput 决定，
+    // 也仍允许后续定期刷新覆盖。空串无意义，schema 层直接拒绝。additive：旧 CLI 静默丢弃。
+    initialTitle: z.string().trim().min(1).optional(),
+    // titleGenerationEnabled=false：只关闭该会话的**首轮**自动命名
+    // （core shouldAttemptSessionTitleGeneration 读 titleGeneration.enabled）；
+    // 定期刷新（maybeStartSessionTitleRefresh）只看自身设置与轮次网格，不受影响——
+    // 这正是「沿用续号标题 + 允许后续刷新」所需的组合。additive：旧 CLI 静默丢弃。
+    titleGenerationEnabled: z.boolean().optional(),
   }),
   // 父会话由 envelope.sessionId 指定；服务端从父 record 派生完整运行配置。
   // firstInput 存在时，child 创建完成后立即启动首条普通输入；缺省则保持空副屏。

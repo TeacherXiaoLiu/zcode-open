@@ -475,6 +475,34 @@ describe("zcode-protocol-v4 command", () => {
     expect(result.ok).toBe(true);
   });
 
+  it("parses createSession initial title and first-turn naming switch (session handoff)", () => {
+    const result = parseCommandEnvelope({
+      commandId: "cmd-create-handoff",
+      clientId: "client-1",
+      sessionId: null,
+      type: "createSession",
+      payload: {
+        workspaceId: "ws-1",
+        initialTitle: "重构会话交接（续 2）",
+        titleGenerationEnabled: false,
+        firstInput: { text: "继续之前的工作" },
+      },
+      issuedAt: 1000,
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.envelope.payload).toMatchObject({
+        initialTitle: "重构会话交接（续 2）",
+        titleGenerationEnabled: false,
+      });
+    }
+    // 空白初始标题无意义：schema 层直接拒绝，避免写出空标题。
+    expect(
+      commandPayloadSchemas.createSession.safeParse({ workspaceId: "ws-1", initialTitle: "  " })
+        .success,
+    ).toBe(false);
+  });
+
   it("parses createSession MCP runtime configuration", () => {
     const result = parseCommandEnvelope({
       commandId: "cmd-create-mcp",

@@ -70,6 +70,39 @@ MVP 验证矩阵：[conversation-session-validation-matrix.md](./conversation-se
 
 ## 枚举边界
 
+## HANDOFF. 基于当前会话新开会话（会话交接）（已实现，待人工验收）
+
+规则见 [`specs/session-handoff.md`](../specs/session-handoff.md)。核心语义：在空闲根会话点按钮 →
+创建同 workspace 的新 root 会话 → 自动发送一条可见首条消息（固定交接指令 + 旧会话 ID +
+最多 8000 字符的最近用户/助手正文）→ 新会话自己用 `ReadSessionContext` 读取旧会话并继续。
+旧会话完全不变（无消息、标题、归档、parentID、历史复制）。
+
+按钮链**不新增摘要模型调用**；摘要由新会话自己的首个回合完成。`ReadSessionContext` 是有界读取器
+（受压缩边界裁剪、按预算截断、启用模型时内部抽取），因此**不得断言"读到全部历史"**。
+
+实现状态（2026-10-14，按 `specs/session-handoff.md`「实现路径（最小改动）」）：常驻顶栏入口 +
+`packages/shared/src/session-handoff` 共享纯逻辑 + `createSession.initialTitle` /
+`titleGenerationEnabled` 两个可选字段 + 首次持久化写入续号标题（非 custom）。
+HANDOFF-02 已有 shared/UI 单测；HANDOFF-03、HANDOFF-05 只有部分断言（见覆盖矩阵）；
+HANDOFF-01、04、06–10 的端到端断言尚未执行，仍按 planned 处理。
+
+| ID         | setup                                                                | action                                     | assertion                                                                                                     | evidence                       |
+| ---------- | -------------------------------------------------------------------- | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------- | ------------------------------ |
+| HANDOFF-01 | 空闲根交互会话，且存在可用的已保存正文                                | 点击「基于当前会话新开会话」               | 新建 root（无 parentID）、自动跳转、首条消息为交接指令+摘录；新会话首个回合实际调用 `ReadSessionContext`      | UI + protocol + 模型请求/工具轨迹 |
+| HANDOFF-02 | 构造跨 8000 预算的正文，含中文/emoji 与超长最新一条                    | 组装摘录（纯函数）                         | 摘录 ≤ 8000 码位且不切代理对；只含用户与助手正文；最新超长条保留尾部并标注截取，不产生空摘录                  | 纯函数单测                     |
+| HANDOFF-03 | running / 有排队输入 / 有阻塞交互；子代理与后台会话；旧 CLI            | 观察按钮并尝试触发                          | 非法态禁用并给出原因，服务端再次拒绝；子代理/后台无入口；旧 CLI 明确提示版本不支持                            | UI unit + CLI guard            |
+| HANDOFF-04 | 目标 Host 上模型/推理档位可用与不可用两种情形                          | 触发交接                                    | 继承完整模型选择/推理档位/mode/planEnabled/followup；配置不可用时失败而非静默降级为默认模型/权限              | protocol + runtime             |
+| HANDOFF-05 | 旧标题为 `X` 与 `X（续 2）` 两种                                        | 交接并推进到刷新网格                        | 新标题 `X（续 2）` / `X（续 3）`；首轮不被 `titleFromInput` 或自动命名覆盖；网格到达时仍按现有设置刷新        | persistence + runtime          |
+| HANDOFF-06 | 注入摘录读取失败、配置不可用、提交事务故障                              | 触发交接                                    | 提交前失败：无持久半成品、旧会话不变、报错可重试；提交后失败：会话与首条消息保留                              | adapter 故障注入               |
+| HANDOFF-07 | 重复点击、重复投递同一 `commandId`、ACK 丢失后重传、CLI 重启            | 重放同一命令                                | 只产生一个新会话并返回同一 sessionId；幂等凭据在新会话上；旧会话无命令事实                                    | CommandInbox + 持久化恢复      |
+| HANDOFF-08 | 等待期间切换工作区/pane                                                | 迟到结果到达                                | 不串数据、不抢导航；仍提供打开已创建会话的入口，目标为原 workspace                                            | UI 编排测试                    |
+| HANDOFF-09 | `ReadSessionContext` 返回 not_found / failed / truncated               | 新会话执行首回合                            | 新会话诚实说明不确定部分，不声称已掌握全部历史；不伪造接手结论                                                | 工具集成 + 回放                |
+| HANDOFF-10 | desktop-continuous 与 web-remote-replayable；本地与远程 identity        | 触发并恢复                                  | 两种交付语义各自成立；`workspaceIdentity?.trim() || workspacePath` 路由不丢失，不按同路径猜 Host              | 协议/恢复 + 代表性端到端        |
+
+剪枝（不覆盖并说明理由）：不复制旧 todo/goal/queue/后台工作（属旧会话运行态，交接语义不包含）；
+不测旧会话加载性能（独立需求）；不对每个 provider、SSH/WSL/Docker 与每种故障做全排列——
+shared 协议保留两种交付语义，Desktop 以一个主流程加一个故障/恢复代表证明。
+
 ## CUA-SUBAGENT. 子 Agent Computer Use 边界
 
 | ID              | setup                                                                    | action                     | assertion                                                                              | evidence                         |

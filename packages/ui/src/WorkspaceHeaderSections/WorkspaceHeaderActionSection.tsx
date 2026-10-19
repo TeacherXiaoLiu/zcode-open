@@ -6,6 +6,7 @@ import type { WorkspaceHeaderActionSectionProps } from "@/WorkspaceHeaderSection
 import { WorkspaceHelpMenuButton } from "@/WorkspaceHelpMenuButton.js";
 import { ConversationShareMenu } from "@/ConversationShareMenu.js";
 import { DesktopWindowControls } from "@/DesktopWindowControls.js";
+import { WorkspaceSessionHandoffButton } from "@/WorkspaceSessionHandoffButton.js";
 
 export type { WorkspaceHeaderActionSectionProps } from "@/WorkspaceHeaderSections/shared.js";
 
@@ -46,6 +47,16 @@ export function WorkspaceHeaderActionSection({
           workspaceIdentity={workspaceIdentity}
           remoteTarget={remoteTarget}
           onSelectedEditorChange={onSelectedEditorChange}
+        />
+      ) : null}
+      {/* 会话交接（specs/session-handoff.md）：常驻顶栏入口，由当前 pane 注册的资格状态驱动；
+          草稿、子代理/后台与只读观察视图不显示。v4 语义下 activeTaskId 就是 sessionId。 */}
+      {variant === "task" ? (
+        <WorkspaceSessionHandoffButton
+          activeSessionId={activeTaskId ?? null}
+          workspaceAbsPath={workspaceAbsPath}
+          workspaceIdentity={workspaceIdentity}
+          useWindowsCaptionSpacing={useWindowsCaptionSpacing}
         />
       ) : null}
       {/* 分享发布接口依赖登录态；未登录时隐藏入口，避免用户打开后只能得到鉴权失败。 */}

@@ -1238,6 +1238,8 @@ export function createConversationV4Gateway(
       dynamicWorkflowEnabled,
       dynamicWorkflowMode,
       permissionScope,
+      initialTitle,
+      titleGenerationEnabled,
     }) => {
       if (permissionScope && !context.deps.sessionStore)
         throw new Error("Group task permission scope requires persistence");
@@ -1267,6 +1269,10 @@ export function createConversationV4Gateway(
         ...(dynamicWorkflowEnabled === true && dynamicWorkflowMode !== undefined
           ? { dynamicWorkflowMode }
           : {}),
+        // 会话交接（specs/session-handoff.md）：初始标题与首轮命名开关同为
+        // runtime 创建期配置——首次持久化写标题时就消费，不能等到首发之后。
+        ...(initialTitle ? { initialTitle } : {}),
+        ...(titleGenerationEnabled === false ? { titleGenerationEnabled: false } : {}),
       });
       if (permissionScope) {
         const record = context.sessions.get(created.sessionId);

@@ -597,7 +597,10 @@ async function persistSession(
     // session.path/directory，导致本地 workspacePath 的末尾 `/` 丢失。冷恢复随后按精确
     // workspaceKey 查 provider registry 时就会落到另一个身份。持久化必须保留协议入口路径。
     const persistedWorkspacePath = this.config.workspacePath ?? directory;
-    const title = titleFromInput(input);
+    // 会话交接（specs/session-handoff.md）：显式初始标题（续号标题）优先于
+    // titleFromInput——首条消息是交接提示词，用它截标题会把续号标题覆盖掉。
+    // 来源仍是 first_input（非 custom），定期刷新因此照旧可覆盖。
+    const title = this.config.initialSessionTitle?.trim() || titleFromInput(input);
     const workspaceIdentity = this.config.memory?.workspaceIdentity?.trim();
     await this.sessionStore.createSession({
       id: this.sessionId,

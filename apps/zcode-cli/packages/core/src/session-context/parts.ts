@@ -23,11 +23,10 @@ const SKIPPED_SYNTHETIC_TEXT_SOURCES = new Set([
 
 export function formatPartForContext(part: MessagePart): string | null {
   switch (part.type) {
-    case "text":
-      if (part.ignored) return null;
-      if (SYSTEM_REMINDER_PATTERN.test(part.text)) return null;
-      if (part.synthetic && shouldSkipSyntheticTextPart(part.metadata?.source)) return null;
-      return truncateText(part.text, TEXT_PART_PREVIEW_CHARS);
+    case "text": {
+      const text = selectContextTextPart(part);
+      return text === null ? null : truncateText(text, TEXT_PART_PREVIEW_CHARS);
+    }
     case "file":
       return formatFilePart(part);
     case "agent":
@@ -56,6 +55,19 @@ export function formatPartForContext(part: MessagePart): string | null {
     case "timeline":
       return null;
   }
+}
+
+/**
+ * text part 是否可作为「会话正文」参与上下文，返回**未截断**原文。
+ * 判定与 formatPartForContext 的 text 分支共用同一份规则（忽略 ignored、system-reminder、
+ * 指定来源的合成文本），供需要自行控制预算的调用方（如会话交接摘录）复用，避免规则分叉。
+ */
+export function selectContextTextPart(part: MessagePart): string | null {
+  if (part.type !== "text") return null;
+  if (part.ignored) return null;
+  if (SYSTEM_REMINDER_PATTERN.test(part.text)) return null;
+  if (part.synthetic && shouldSkipSyntheticTextPart(part.metadata?.source)) return null;
+  return part.text;
 }
 
 export function dedupeParts(parts: MessagePart[]): MessagePart[] {
