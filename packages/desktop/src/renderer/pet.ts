@@ -149,13 +149,32 @@ async function boot(): Promise<void> {
     return;
   }
 
-  const dpr = window.devicePixelRatio || 1;
-  canvas.width = Math.max(1, Math.round(canvas.clientWidth * dpr));
-  canvas.height = Math.max(1, Math.round(canvas.clientHeight * dpr));
+  // 画布像素缓冲必须与容器的 CSS 尺寸保持同步：绘制时是把 192×208 的格子
+  // 拉伸到 canvas.width/height，一旦缓冲尺寸与 clientWidth/Height 失配，画面就会
+  // 被等比放大（曾出现"反复点击宠物越来越大"）。窗口尺寸会因缩放设置、显示器 DPI
+  // 变化、透明窗口首次显示重算而改变，因此不能只在启动时算一次。
+  let dpr = window.devicePixelRatio || 1;
+  function syncCanvasSize(): void {
+    const nextDpr = window.devicePixelRatio || 1;
+    const width = Math.max(1, Math.round(canvas.clientWidth * nextDpr));
+    const height = Math.max(1, Math.round(canvas.clientHeight * nextDpr));
+    if (canvas.width === width && canvas.height === height && dpr === nextDpr) {
+      return;
+    }
+    // 只有尺寸真的变化才写 width/height：赋值会清空画布并重置上下文状态。
+    dpr = nextDpr;
+    canvas.width = width;
+    canvas.height = height;
+  }
+  syncCanvasSize();
   const context = canvas.getContext("2d");
   if (!context) {
     return;
   }
+  const resizeObserver =
+    typeof ResizeObserver === "undefined" ? undefined : new ResizeObserver(syncCanvasSize);
+  resizeObserver?.observe(canvas);
+  window.addEventListener("resize", syncCanvasSize);
 
   const animator = new PetAnimator(buildClips(pet), state);
   let statusState: DesktopPetState = state;
@@ -193,6 +212,9 @@ async function boot(): Promise<void> {
 
   // 主循环：从图集绘制当前帧（拉伸到整窗，dpr 已在 canvas 尺寸里）。
   window.setInterval(() => {
+    // 兜底：ResizeObserver/resize 事件在透明窗口与高 DPI 切换下可能漏发，
+    // 每帧比对一次 CSS 尺寸，避免缓冲失配把宠物拉伸放大。
+    syncCanvasSize();
     const spriteIndex = animator.tick(performance.now());
     const column = spriteIndex % pet.columns;
     const row = Math.floor(spriteIndex / pet.columns);
