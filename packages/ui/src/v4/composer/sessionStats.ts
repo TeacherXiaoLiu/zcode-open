@@ -4,7 +4,9 @@
 //   - 模型用时 = Σ 每个主轮模型请求的总时长 durationMs（含首 token 等待）；
 //   - 工具调用用时 = Σ turnHeader.toolDurationMs（CLI 已按轮做工具区间并集）；
 //   - 首 token 平均（TTFT）= avg(timeToFirstContentMs)；仅统计有值的请求；
-//   - 输出速度（TPS）= Σ outputTokens ÷ Σ generationDurationMs（与调试面板同一口径）。
+//   - 输出速度（TPS）= (Σ outputTokens − 计入请求数) ÷ Σ generationDurationMs
+//     （与调试面板 calculateOutputTps 同一口径：分母已排除首 token 等待，分子同源扣除各请求
+//     的首个 token；只统计两个字段同时存在的请求，避免分子分母来自不同的轮集合）。
 import type { SessionDebugRound } from "@zcode/shared";
 import type { ConversationSnapshot } from "@zcode/shared/zcode-protocol-v4";
 
@@ -24,6 +26,8 @@ export function resolveSessionStats(
   let ttftCount = 0;
   let outputTokens = 0;
   let generationDurationMs = 0;
+  /** 同时具备 outputTokens 与 generationDurationMs 的请求数（分子要扣掉各自的首个 token）。 */
+  let tpsRoundCount = 0;
   for (const round of rounds) {
     // 用 typeof 判定而非 !== null：字段缺省（undefined）时同样跳过，不产生 NaN。
     if (typeof round.durationMs === "number") {
@@ -33,20 +37,24 @@ export function resolveSessionStats(
       ttftSum += round.timeToFirstContentMs;
       ttftCount += 1;
     }
-    if (typeof round.usage.outputTokens === "number") {
+    // 分子分母必须同源：只有两字段都存在的轮才参与 TPS，否则是两组不同请求的比值。
+    if (
+      typeof round.usage.outputTokens === "number" &&
+      typeof round.generationDurationMs === "number"
+    ) {
       outputTokens += round.usage.outputTokens;
-    }
-    if (typeof round.generationDurationMs === "number") {
       generationDurationMs += round.generationDurationMs;
+      tpsRoundCount += 1;
     }
   }
+  const decodeTokens = outputTokens - tpsRoundCount;
   return {
     modelDurationMs,
     toolDurationMs,
     avgTimeToFirstTokenMs: ttftCount > 0 ? ttftSum / ttftCount : null,
     outputTps:
-      generationDurationMs > 0 && outputTokens > 0
-        ? (outputTokens * 1000) / generationDurationMs
+      generationDurationMs > 0 && decodeTokens > 0
+        ? (decodeTokens * 1000) / generationDurationMs
         : null,
   };
 }

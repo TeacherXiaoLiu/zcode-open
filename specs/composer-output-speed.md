@@ -10,8 +10,9 @@
 
 - **目标**：流式进行中提供"实时速度"反馈（区别于平均口径）；提供点击展开的会话级统计；
   在上下文面板补充累计 token 的分项用量。
-- **不改变**：v4 协议与 usage 投影（`snapshot.usage`）、调试面板 TPS（`calculateOutputTps`，权威口径）、
-  Highspeed 节省时长统计、`session-debug` 既有字段语义（只新增两个字段）。
+- **不改变**：v4 协议与 usage 投影（`snapshot.usage`）、调试面板 TPS 作为权威口径的地位
+  （`calculateOutputTps`，公式见第二节「TPS 与 reasoning 口径」）、Highspeed 节省时长统计、
+  `session-debug` 既有字段语义（只新增两个字段）。
 - 全部 UI 在 renderer 内派生；`session-debug` 仅新增两个 nullable 字段（同批发布，无兼容包袱）。
 
 ## 一、工具栏速度标签（实时 + 平均）
@@ -37,9 +38,23 @@
   | 模型用时 | Σ 主轮模型请求总时长（含首 token 等待） | session-debug `rounds[].durationMs` |
   | 工具调用用时 | Σ 各轮工具区间并集时长 | v4 `turnHeader.toolDurationMs`（`rows.window` 求和） |
   | 首 token 平均（TTFT） | avg(每请求 TTFT) | session-debug `rounds[].timeToFirstContentMs` |
-  | 输出速度（TPS） | Σ outputTokens ÷ Σ generationDurationMs | session-debug `rounds`（与调试面板同口径） |
+  | 输出速度（TPS） | (Σ outputTokens − 计入请求数) ÷ Σ generationDurationMs | session-debug `rounds`（与调试面板同口径） |
 
 - 数据缺失显示 `—`；格式：分钟级 `X分Y秒`/`Xm Ys`，秒级一位小数 `8.9秒`/`8.9s`，TPS 取整。
+
+### TPS 与 reasoning 口径
+
+- **权威 TPS（调试面板逐轮 `tokensPerSecond` 与会话统计同源，`calculateOutputTps`）**：
+  分母 `generationDurationMs` 是请求总时长减去首 token 等待（TTFT），首个 token 不在该时间窗内产生，
+  因此分子同源扣除每个请求的首个 token（`(outputTokens − 1) × 1000 ÷ generationDurationMs`；
+  会话级为 `(ΣoutputTokens − 计入请求数) ÷ ΣgenerationDurationMs`）——与 vLLM 的
+  `TPOT = (端到端延迟 − TTFT) ÷ (输出 token 数 − 1)` 同构，避免短回复系统性偏高。
+  `outputTokens ≤ 1` 的请求没有可测的 decode 阶段，单轮 TPS 记为 `—`；
+  会话聚合只统计 `outputTokens` 与 `generationDurationMs` 同时存在的请求（分子分母不跨轮集合）。
+- **reasoning 计入口径（显式声明：两套口径不同源）**：权威 TPS 的分子是 provider 上报的
+  `usage.outputTokens`，是否含思考 token 由 provider 决定（如 Anthropic 的 output 含 thinking）；
+  实时/平均速度（估算口径，见第一节）把 reasoning 增量与正文增量同等计入 `path="text"`。
+  两者不保证逐位对齐，属已知口径差异。
 - **加载时机**：面板只在打开时挂载 → `useSessionDebug` 的 1 秒轮询只在打开期间运行；
   关闭即停止（不打开零开销）。
 - **session-debug 扩展**（`packages/shared/src/session-debug.ts` + CLI `observeSessionDebug`）：

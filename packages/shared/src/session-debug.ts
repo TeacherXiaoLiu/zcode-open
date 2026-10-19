@@ -87,7 +87,12 @@ export const sessionDebugSnapshotSchema = z
 export type SessionDebugSnapshot = z.infer<typeof sessionDebugSnapshotSchema>;
 export type SessionDebugNetworkEntry = z.infer<typeof sessionDebugNetworkEntrySchema>;
 
-/** 输出 token 与首输出到请求结束的同源时间；未知值不能用请求总耗时替代。 */
+/**
+ * 输出 token 与首输出到请求结束的同源时间；未知值不能用请求总耗时替代。
+ * 分子扣除首个 token（与 vLLM 的 TPOT 公式同构）：generationDurationMs 已经排除首 token 等待
+ * （TTFT），首个 token 并不在这个时间窗内产生，留在分子里会让 TPS 系统性偏高（短回复尤其明显）。
+ * outputTokens ≤ 1 时没有可测的 decode 阶段（时间窗只覆盖首 token 之后），返回 null。
+ */
 export function calculateOutputTps(
   outputTokens: number | undefined,
   generationDurationMs: number | null,
@@ -95,12 +100,12 @@ export function calculateOutputTps(
   if (
     outputTokens === undefined ||
     !Number.isFinite(outputTokens) ||
-    outputTokens < 0 ||
+    outputTokens <= 1 ||
     generationDurationMs === null ||
     !Number.isFinite(generationDurationMs) ||
     generationDurationMs <= 0
   )
     return null;
-  const tps = (outputTokens * 1000) / generationDurationMs;
+  const tps = ((outputTokens - 1) * 1000) / generationDurationMs;
   return Number.isFinite(tps) ? tps : null;
 }

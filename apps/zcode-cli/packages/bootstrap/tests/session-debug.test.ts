@@ -48,10 +48,11 @@ describe("session debug observation", () => {
     );
     const snapshot = sessionDebugSnapshotSchema.parse(readSessionDebug(target));
     expect(snapshot.rounds[0]).toMatchObject({
-      tokensPerSecond: 40,
       generationDurationMs: 3000,
       usage: { outputTokens: 120, reasoningTokens: 20 },
     });
+    // 分子扣除首个 token（vLLM TPOT 同构）：(120 − 1) × 1000 ÷ 3000。
+    expect(snapshot.rounds[0]?.tokensPerSecond).toBeCloseTo(119_000 / 3_000, 5);
     expect(snapshot.cache).toMatchObject({
       hitRateRequestCount: 1,
       totalInputTokens: 1000,
@@ -101,12 +102,14 @@ describe("session debug observation", () => {
     expect(context.sessions.size).toBe(1);
   });
 
-  it("keeps zero output but never adds reasoning to the TPS numerator", () => {
+  it("outputTokens ≤ 1 没有可测 decode 阶段，且 reasoning 永不进入 TPS 分子", () => {
     const target = record();
     observeSessionDebug(target, event(1, { usage: { outputTokens: 0, reasoningTokens: 100 } }));
-    expect(readSessionDebug(target).rounds[0]?.tokensPerSecond).toBe(0);
-    observeSessionDebug(target, event(2, { usage: {} }));
+    expect(readSessionDebug(target).rounds[0]?.tokensPerSecond).toBeNull();
+    observeSessionDebug(target, event(2, { usage: { outputTokens: 1, reasoningTokens: 100 } }));
     expect(readSessionDebug(target).rounds[1]?.tokensPerSecond).toBeNull();
+    observeSessionDebug(target, event(3, { usage: {} }));
+    expect(readSessionDebug(target).rounds[2]?.tokensPerSecond).toBeNull();
   });
 
   it("keeps bounded rows while preserving the observation aggregate", () => {
