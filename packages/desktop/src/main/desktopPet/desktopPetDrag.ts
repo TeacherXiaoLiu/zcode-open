@@ -13,7 +13,8 @@ const DRAG_TICK_MS = 16;
 interface DragSession {
   interval?: ReturnType<typeof setInterval>;
   cursorStart: Point;
-  windowStart: { x: number; y: number };
+  /** 拖动起点的窗口 bounds。宽高必须一起带上：见 tick 里的说明。 */
+  windowStart: { x: number; y: number; width: number; height: number };
   movedPx: number;
   direction?: DesktopPetDragDirection;
 }
@@ -53,7 +54,16 @@ export function createDesktopPetDrag(deps: {
       return;
     }
     current.movedPx = Math.hypot(dx, dy);
-    win.setPosition(current.windowStart.x + dx, current.windowStart.y + dy);
+    // 必须用 setBounds 而不是 setPosition：Windows 在 DPI 缩放（如 125%）下，
+    // 对透明无边框窗口反复调用 setPosition 会逐次累加非客户区，表现为"按住拖动时
+    // 宠物持续变大，且只往一个方向变宽或变高"。每次显式带上拖动起点的宽高，
+    // 让系统以固定尺寸重新定位，偏差不会被累积。
+    win.setBounds({
+      x: Math.round(current.windowStart.x + dx),
+      y: Math.round(current.windowStart.y + dy),
+      width: current.windowStart.width,
+      height: current.windowStart.height,
+    });
     const direction: DesktopPetDragDirection =
       Math.abs(dx) >= Math.abs(dy) ? (dx >= 0 ? "running-right" : "running-left") : "running";
     if (direction !== current.direction) {
@@ -73,7 +83,12 @@ export function createDesktopPetDrag(deps: {
       // 先入档再挂 tick：tick 闭包引用同一 session，避免自引用初始化顺序问题。
       const created: DragSession = {
         cursorStart: deps.getCursor(),
-        windowStart: { x: bounds.x, y: bounds.y },
+        windowStart: {
+          x: bounds.x,
+          y: bounds.y,
+          width: bounds.width,
+          height: bounds.height,
+        },
         movedPx: 0,
       };
       session = created;

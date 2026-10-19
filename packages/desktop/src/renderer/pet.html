@@ -2,6 +2,13 @@
 <html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
+    <!-- 桌宠窗口是固定尺寸的透明浮层：禁止浏览器手势/双击缩放。
+         否则长按（pointer capture 期间）可能被 Chromium 当成缩放手势，
+         表现为窗口尺寸不变、画面却持续放大。 -->
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"
+    />
     <title>ZCode Pet</title>
     <style>
       html,
@@ -13,6 +20,9 @@
         user-select: none;
         -webkit-user-select: none;
         cursor: grab;
+        /* 长按不触发系统手势/文本选择/上下文菜单，避免与拖拽语义冲突。 */
+        touch-action: none;
+        -webkit-touch-callout: none;
       }
       body.dragging {
         cursor: grabbing;
@@ -21,6 +31,7 @@
         display: block;
         width: 100%;
         height: 100%;
+        touch-action: none;
       }
     </style>
   </head>
