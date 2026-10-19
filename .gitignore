@@ -73,3 +73,9 @@ packages/desktop/resources/macos-window-bounds/
 __pycache__/
 *.pyc
 .zcode-runtime
+# 本机 AI 会话的计划文件（含本地会话 ID），属过程产物，不入库。
+.mikiko/
+.zcode/
+# 一次性调研/交接文档（发给外部 Harness 的任务书），不属产品代码。
+dsh-pet-plugin-prompt.md
+dsh-tps-plugin-design.md
